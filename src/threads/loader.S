@@ -34,7 +34,7 @@
 	int $0x14			# Destroys AX.
 
 	call puts
-	.string "PiLo"
+	.string "Pintos"
 
 #### Read the partition table on each system hard disk and scan for a
 #### partition of type 0x20, which is the type that we use for a

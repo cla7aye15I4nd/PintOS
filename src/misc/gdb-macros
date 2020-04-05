@@ -102,8 +102,29 @@ document btpagefault
     Print a backtrace of the current thread after a pagefault
 end
 
+set $lastcs = -1
+
 # invoked whenever the program stops
 define hook-stop
+    #
+    # Snippet borrowed from JOS's gdbinit
+    #
+    # There doesn't seem to be a good way to detect if we're in 16- or
+    # 32-bit mode, but we always run with CS == 8 in 32-bit mode.
+    if $cs == 8 || $cs == 27
+      if $lastcs != 8 && $lastcs != 27
+        set architecture i386
+      end
+      x/i $pc
+    else
+      if $lastcs == -1 || $lastcs == 8 || $lastcs == 27
+        set architecture i8086
+      end
+      # Translate the segment:offset into a physical address
+      printf "[%4x:%4x] ", $cs, $eip
+      x/i $cs*16+$eip
+    end
+    set $lastcs = $cs
     # stopped at stub #0E = #14 (page fault exception handler stub)
     if ($eip == intr0e_stub)
         set $savedeip = ((void**)$esp)[1]

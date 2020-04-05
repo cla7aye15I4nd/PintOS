@@ -70,11 +70,11 @@ static void locate_block_devices (void);
 static void locate_block_device (enum block_type, const char *name);
 #endif
 
-int main (void) NO_RETURN;
+int pintos_init (void) NO_RETURN;
 
-/* Pintos main program. */
+/* Pintos main entry point. */
 int
-main (void)
+pintos_init (void)
 {
   char **argv;
 
@@ -129,8 +129,12 @@ main (void)
 
   printf ("Boot complete.\n");
   
-  /* Run actions specified on kernel command line. */
-  run_actions (argv);
+  if (*argv != NULL) {
+    /* Run actions specified on kernel command line. */
+    run_actions (argv);
+  } else {
+    // TODO: no command line passed to kernel. Run interactively 
+  }
 
   /* Finish up. */
   shutdown ();
