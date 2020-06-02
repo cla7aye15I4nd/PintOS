@@ -178,6 +178,18 @@ vprintf_helper (char c, void *char_cnt_)
   putchar_have_lock (c);
 }
 
+void readline(char* s) {
+  while (*s = input_getc()) {
+    if (*s == '\n' || *s == '\r') {
+      puts("");
+      *s = 0;
+      return;
+    }
+    putchar(*s);
+    s++;
+  }
+}
+
 /* Writes C to the vga display and serial port.
    The caller has already acquired the console lock if
    appropriate. */

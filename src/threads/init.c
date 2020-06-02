@@ -76,6 +76,8 @@ int pintos_init (void) NO_RETURN;
 int
 pintos_init (void)
 {
+
+
   char **argv;
 
   /* Clear BSS. */  
@@ -127,6 +129,8 @@ pintos_init (void)
   filesys_init (format_filesys);
 #endif
 
+  printf("init_page_dir[pd_no(ptov(0))] %X\n", init_page_dir[pd_no(ptov(0))]);
+  printf("argv %s\n", argv[0]);
   printf ("Boot complete.\n");
   
   if (*argv != NULL) {
@@ -134,6 +138,18 @@ pintos_init (void)
     run_actions (argv);
   } else {
     // TODO: no command line passed to kernel. Run interactively 
+    char* buff = malloc(100);
+    char* exit_text = "exit";
+    while (true) {
+      printf("> ");
+      readline(buff);
+      if (strcmp(buff, exit_text) == 0) {
+        shutdown_configure(SHUTDOWN_POWER_OFF);
+        break;
+      } else {
+        printf("You said [%s].\n", buff);
+      }
+    }
   }
 
   /* Finish up. */
