@@ -2,7 +2,7 @@
 
 SRCDIR = ../..
 
-all: kernel.bin loader.bin
+all: kernel.bin loader.bin runscript
 
 include ../../Make.config
 include ../Make.vars
@@ -123,6 +123,9 @@ qemu-nox: $(IMAGE)
 	@echo "*** its prefix key is Ctrl-a, press Ctrl-a twice and x to exit."
 	@echo "***"
 	$(QEMU) -nographic -drive file=$(IMAGE),index=0,media=disk,format=raw $(QEMUOPTS)
+
+runscript:
+	cp ../../pintos.sh ./pintos.sh
 
 clean::
 	rm -f $(OBJECTS) $(DEPENDS) 

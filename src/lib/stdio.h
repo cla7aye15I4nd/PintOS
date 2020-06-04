@@ -32,7 +32,6 @@ void __vprintf (const char *format, va_list args,
                 void (*output) (char, void *), void *aux);
 void __printf (const char *format,
                void (*output) (char, void *), void *aux, ...);
-
 void readline(char *);
 
 /* Try to be helpful. */

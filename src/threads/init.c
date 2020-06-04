@@ -76,8 +76,6 @@ int pintos_init (void) NO_RETURN;
 int
 pintos_init (void)
 {
-
-
   char **argv;
 
   /* Clear BSS. */  
@@ -137,7 +135,7 @@ pintos_init (void)
     /* Run actions specified on kernel command line. */
     run_actions (argv);
   } else {
-    // TODO: no command line passed to kernel. Run interactively 
+    // TODO: no command line passed to kernel. Run interactively
     char* buff = malloc(100);
     char* exit_text = "exit";
     while (true) {
