@@ -137,6 +137,15 @@ thread_tick (void)
   /* Enforce preemption. */
   if (++thread_ticks >= TIME_SLICE)
     intr_yield_on_return ();
+
+  thread_foreach(thread_block_ticks_handler, NULL);
+}
+
+void 
+thread_block_ticks_handler (struct thread *t, void *aux UNUSED)
+{
+  if (t->block_ticks > 0 && --t->block_ticks == 0) 
+    thread_unblock(t);
 }
 
 /* Prints thread statistics. */
@@ -180,6 +189,7 @@ thread_create (const char *name, int priority,
     return TID_ERROR;
 
   /* Initialize thread. */
+  t->block_ticks = 0;
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
