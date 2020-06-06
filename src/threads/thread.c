@@ -189,7 +189,6 @@ thread_create (const char *name, int priority,
     return TID_ERROR;
 
   /* Initialize thread. */
-  t->block_ticks = 0;
   init_thread (t, name, priority);
   tid = t->tid = allocate_tid ();
 
