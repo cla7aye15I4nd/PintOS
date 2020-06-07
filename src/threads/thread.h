@@ -141,5 +141,6 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void thread_block_ticks_handler (struct thread *, void *);
+bool thread_list_less_func(const struct list_elem *, const struct list_elem *, void *);
 
 #endif /* threads/thread.h */
