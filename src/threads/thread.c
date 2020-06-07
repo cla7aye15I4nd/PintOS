@@ -209,6 +209,7 @@ thread_create (const char *name, int priority,
 
   /* Add to run queue. */
   thread_unblock (t);
+  thread_preempt();
 
   return tid;
 }
@@ -323,6 +324,17 @@ thread_yield (void)
   intr_set_level (old_level);
 }
 
+void 
+thread_preempt (void) 
+{
+  if (list_empty (&ready_list))
+    return;
+
+  struct thread *t = list_entry (list_front(&ready_list), struct thread, elem);
+  if (thread_current()->priority < t->priority)
+    thread_yield();
+}
+
 /* Invoke function 'func' on all threads, passing along 'aux'.
    This function must be called with interrupts off. */
 void
@@ -345,6 +357,7 @@ void
 thread_set_priority (int new_priority) 
 {
   thread_current ()->priority = new_priority;
+  thread_preempt ();
 }
 
 /* Returns the current thread's priority. */
