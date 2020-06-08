@@ -355,10 +355,98 @@ thread_foreach (thread_action_func *func, void *aux)
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void
 thread_set_priority (int new_priority) 
-{
-  thread_current ()->priority = new_priority;
-  thread_preempt ();
+{ 
+  enum intr_level old_level;
+  struct thread *current_thread;
+
+  old_level = intr_disable();
+  current_thread = thread_current();
+  
+  int old_priority = current_thread->priority;
+  current_thread->base_priority = new_priority;
+
+  if (list_empty(&current_thread->lock_list) || new_priority > old_priority) {
+    current_thread->priority = new_priority;
+	  thread_yield();
+  }
+  
+  intr_set_level(old_level);
 }
+
+void
+thread_hold_lock(struct lock *lock)
+{
+  enum intr_level old_level;
+  struct thread *current_thread;
+
+  old_level = intr_disable();
+  current_thread = thread_current();
+  
+  list_insert_ordered(&current_thread->lock_list, &lock->elem, lock_list_less_func, NULL);
+
+  if (current_thread->priority < lock->max_priority) {
+    current_thread->priority = lock->max_priority;
+	  thread_yield();
+  }
+
+  intr_set_level(old_level);
+}
+
+void
+thread_donate_priority(struct thread *t)
+{
+  enum intr_level old_level;
+  
+  old_level = intr_disable();
+  thread_update_priority(t);
+  
+  if (t->status == THREAD_READY) {
+    list_remove(&t->elem);
+	  list_insert_ordered(&ready_list, &t->elem, thread_list_less_func, NULL);
+  }
+
+  intr_set_level(old_level);
+}
+
+void
+thread_remove_lock(struct lock *lock)
+{
+  enum intr_level old_level;
+  
+  old_level = intr_disable();
+  list_remove(&lock->elem);
+  thread_update_priority(thread_current());
+
+  intr_set_level(old_level);
+}
+
+void
+thread_update_priority(struct thread *t)
+{
+  enum intr_level old_level;
+  
+  old_level = intr_disable();
+  int max_priiority = t->base_priority;
+  int lock_pri;
+
+  if (!list_empty(&t->lock_list)) {
+    list_sort(&t->lock_list, lock_list_less_func, NULL);
+	  int lock_priority = list_entry(list_front(&t->lock_list), struct lock, elem)->max_priority;
+    if (max_priiority < lock_priority)
+	    max_priiority = lock_priority;
+  }
+  t->priority = max_priiority;
+
+  intr_set_level(old_level);
+}
+
+bool
+lock_list_less_func(const struct list_elem *a, 
+                    const struct list_elem *b, void *aux UNUSED) 
+{
+  return list_entry(a, struct lock, elem)->max_priority > list_entry(b, struct lock, elem)->max_priority;
+}
+
 
 /* Returns the current thread's priority. */
 int
@@ -483,8 +571,10 @@ init_thread (struct thread *t, const char *name, int priority)
   t->status = THREAD_BLOCKED;
   strlcpy (t->name, name, sizeof t->name);
   t->stack = (uint8_t *) t + PGSIZE;
+  t->base_priority = priority;
   t->priority = priority;
   t->magic = THREAD_MAGIC;
+  list_init(&t->lock_list);
 
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
@@ -615,3 +705,14 @@ allocate_tid (void)
 /* Offset of `stack' member within `struct thread'.
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof (struct thread, stack);
+
+void print_ready_list() 
+{ 
+  printf("READY LIST:\n");
+  struct list_elem *e = list_begin(&ready_list);
+  while (e != list_end(&ready_list)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    printf("%s %d\n", t->name, t->priority);
+    e = list_next(e);
+  }
+}

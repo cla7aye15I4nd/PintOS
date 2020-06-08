@@ -100,6 +100,10 @@ struct thread
 
    int64_t block_ticks;                 /* Ticks thread needs to be blocked */
 
+   int base_priority;
+   struct list lock_list;
+   struct lock *wait_lock;
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -143,5 +147,13 @@ int thread_get_load_avg (void);
 
 void thread_block_ticks_handler (struct thread *, void *);
 bool thread_list_less_func(const struct list_elem *, const struct list_elem *, void *);
+
+void thread_donate_priority(struct thread *);
+void thread_hold_lock(struct lock *);
+void thread_remove_lock(struct lock *);
+bool lock_list_less_func(const struct list_elem *, const struct list_elem *, void *);
+void thread_update_priority(struct thread *);
+
+void print_ready_list();
 
 #endif /* threads/thread.h */
