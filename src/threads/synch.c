@@ -69,8 +69,7 @@ sema_down (struct semaphore *sema)
   old_level = intr_disable ();
   while (sema->value == 0) 
     {
-      list_insert_ordered (&sema->waiters, &thread_current ()->elem, 
-        thread_list_less_func, NULL);
+      list_push_back (&sema->waiters, &thread_current ()->elem);
       thread_block ();
     }
   sema->value--;
@@ -215,7 +214,7 @@ lock_acquire (struct lock *lock)
   struct thread *current_thread = thread_current();
   struct lock* next_lock;
 
-  if (lock->holder != NULL) {
+  if (lock->holder != NULL && !thread_mlfqs) {
     current_thread->wait_lock = lock;
     next_lock = lock;
     while (next_lock != NULL && next_lock->max_priority < current_thread->priority) {
@@ -230,9 +229,11 @@ lock_acquire (struct lock *lock)
   old_level = intr_disable();
   current_thread = thread_current();
 
-  current_thread->wait_lock = NULL;
-  lock->max_priority = current_thread->priority;
-  thread_hold_lock(lock);
+  if (!thread_mlfqs) {
+    current_thread->wait_lock = NULL;
+    lock->max_priority = current_thread->priority;
+    thread_hold_lock(lock);
+  }
 
   lock->holder = current_thread;
 
@@ -270,8 +271,10 @@ lock_release (struct lock *lock)
   ASSERT (lock != NULL);
   ASSERT (lock_held_by_current_thread (lock));
 
-  list_remove(&lock->elem);
-  thread_update_priority(thread_current());
+  if (!thread_mlfqs) {
+    list_remove(&lock->elem);
+    thread_update_priority(thread_current());
+  }
 
   lock->holder = NULL;
   sema_up (&lock->semaphore);
