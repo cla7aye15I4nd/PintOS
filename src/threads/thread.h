@@ -4,6 +4,7 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include "threads/fixed-point.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -100,6 +101,15 @@ struct thread
 
    int64_t block_ticks;                 /* Ticks thread needs to be blocked */
 
+   /* Used in donaate priority */
+   int base_priority;                   /* Base priority */
+   struct list lock_list;               /* Holding Locks */
+   struct lock *wait_lock;              /* Waiting Lock */
+
+   /* BSD schedule */
+   int nice;
+   dec recent_cpu;
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
@@ -112,7 +122,7 @@ extern bool thread_mlfqs;
 void thread_init (void);
 void thread_start (void);
 
-void thread_tick (void);
+void thread_tick (int);
 void thread_print_stats (void);
 
 typedef void thread_func (void *aux);
@@ -127,6 +137,7 @@ const char *thread_name (void);
 
 void thread_exit (void) NO_RETURN;
 void thread_yield (void);
+void thread_preempt (void);
 
 /* Performs some operation on thread t, given auxiliary data AUX. */
 typedef void thread_action_func (struct thread *t, void *aux);
@@ -141,5 +152,17 @@ int thread_get_recent_cpu (void);
 int thread_get_load_avg (void);
 
 void thread_block_ticks_handler (struct thread *, void *);
+bool thread_list_less_func(const struct list_elem *, const struct list_elem *, void *);
+
+void thread_refresh(void);
+void thread_hold_lock(struct lock *);
+void thread_donate_priority(struct thread *);
+void thread_update_priority(struct thread *);
+void thread_update_dynamic_priority (struct thread *);
+
+bool lock_list_less_func(const struct list_elem *, const struct list_elem *, void *);
+
+/* for debug */ 
+void print_ready_list(void);
 
 #endif /* threads/thread.h */
