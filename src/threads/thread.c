@@ -365,11 +365,10 @@ thread_set_priority (int new_priority)
   int old_priority = current_thread->priority;
   current_thread->base_priority = new_priority;
 
-  if (list_empty(&current_thread->lock_list) || new_priority > old_priority) {
+  if (list_empty(&current_thread->lock_list) || new_priority > old_priority) 
     current_thread->priority = new_priority;
-	  thread_yield();
-  }
   
+  thread_preempt();
   intr_set_level(old_level);
 }
 
@@ -386,7 +385,7 @@ thread_hold_lock(struct lock *lock)
 
   if (current_thread->priority < lock->max_priority) {
     current_thread->priority = lock->max_priority;
-	  thread_yield();
+    thread_preempt();
   }
 
   intr_set_level(old_level);
@@ -404,18 +403,6 @@ thread_donate_priority(struct thread *t)
     list_remove(&t->elem);
 	  list_insert_ordered(&ready_list, &t->elem, thread_list_less_func, NULL);
   }
-
-  intr_set_level(old_level);
-}
-
-void
-thread_remove_lock(struct lock *lock)
-{
-  enum intr_level old_level;
-  
-  old_level = intr_disable();
-  list_remove(&lock->elem);
-  thread_update_priority(thread_current());
 
   intr_set_level(old_level);
 }

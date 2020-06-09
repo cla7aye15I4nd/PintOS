@@ -148,12 +148,12 @@ int thread_get_load_avg (void);
 void thread_block_ticks_handler (struct thread *, void *);
 bool thread_list_less_func(const struct list_elem *, const struct list_elem *, void *);
 
-void thread_donate_priority(struct thread *);
 void thread_hold_lock(struct lock *);
-void thread_remove_lock(struct lock *);
-bool lock_list_less_func(const struct list_elem *, const struct list_elem *, void *);
+void thread_donate_priority(struct thread *);
 void thread_update_priority(struct thread *);
+bool lock_list_less_func(const struct list_elem *, const struct list_elem *, void *);
 
+/* for debug */ 
 void print_ready_list();
 
 #endif /* threads/thread.h */
