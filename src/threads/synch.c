@@ -128,8 +128,9 @@ sema_up (struct semaphore *sema)
     thread_unblock (list_entry (min, struct thread, elem));
   }
   sema->value++;
-  thread_preempt();
-  
+  if (!intr_context())
+    thread_preempt ();
+    
   intr_set_level (old_level);
 }
 
