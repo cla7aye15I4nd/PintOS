@@ -50,6 +50,7 @@ process_execute (const char *file_name)
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (thread_name, PRI_DEFAULT, start_process, fn_copy);
+  printf("*********** THREAD CREATE %s %d\n", fn_copy, tid);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   palloc_free_page (fn_to_split);
@@ -64,6 +65,7 @@ start_process (void *file_name_)
   char *file_name = file_name_, *pos_ptr;
   struct intr_frame if_;
   bool success;
+  printf("************* START PROCESS %s\n", file_name);
 
   /* Implementation by Dong Started */
   char *name = strtok_r (file_name, " ", &pos_ptr);
@@ -75,7 +77,6 @@ start_process (void *file_name_)
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
   success = load (name, &if_.eip, &if_.esp);
-  
   /* Implementation by Dong Started */
   if (success)
   {
@@ -88,6 +89,7 @@ start_process (void *file_name_)
       int len = strlen (name) + 1;
       esp -= len;
       strlcpy (esp, name, len + 1);
+      printf("******* %d %s\n", esp, esp);
       argv[argc++] = esp;
     }
 
@@ -108,7 +110,6 @@ start_process (void *file_name_)
     *((int *) esp) = 0;
 
     if_.esp = esp;
-
   }
   /* Implementation by Dong Ended */
 
@@ -139,6 +140,7 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+  while (true);
   return -1;
 }
 
@@ -273,12 +275,15 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
+  printf ("*********** loading %s\n", file_name);
   file = filesys_open (file_name);
+  printf ("*********** loading %s %d\n", file_name, file == NULL);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
       goto done; 
     }
+
 
   /* Read and verify executable header. */
   if (file_read (file, &ehdr, sizeof ehdr) != sizeof ehdr
@@ -293,6 +298,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
+  printf ("*********** loading\n");
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
@@ -488,7 +494,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE;
+        *esp = PHYS_BASE - 12;
       else
         palloc_free_page (kpage);
     }

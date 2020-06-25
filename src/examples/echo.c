@@ -10,5 +10,6 @@ main (int argc, char **argv)
     printf ("%s ", argv[i]);
   printf ("\n");
 
-  return EXIT_SUCCESS;
+  //return EXIT_SUCCESS;
+  return 0;
 }
