@@ -287,7 +287,7 @@ thread_unblock (struct thread *t)
 
   old_level = intr_disable ();
   ASSERT (t->status == THREAD_BLOCKED);
-  list_insert_ordered (&ready_list, &t->elem, thread_list_less_func, NULL);
+  list_push_back (&ready_list, &t->elem);
   t->status = THREAD_READY;
   intr_set_level (old_level);
 }
@@ -358,7 +358,7 @@ thread_yield (void)
 
   old_level = intr_disable ();
   if (cur != idle_thread) 
-    list_insert_ordered (&ready_list, &cur->elem, thread_list_less_func, NULL);
+    list_push_back (&ready_list, &cur->elem);
   cur->status = THREAD_READY;
   schedule ();
   intr_set_level (old_level);
@@ -370,8 +370,8 @@ thread_preempt (void)
   if (list_empty (&ready_list))
     return;
 
-  struct thread *t = list_entry (list_front(&ready_list), struct thread, elem);
-  if (thread_current()->priority < t->priority)
+  struct thread *t = list_entry (list_min (&ready_list, thread_list_less_func, NULL), struct thread, elem);
+  if (thread_current()->priority <= t->priority)
     thread_yield();
 }
 
@@ -444,7 +444,7 @@ thread_donate_priority(struct thread *t)
   
   if (t->status == THREAD_READY) {
     list_remove(&t->elem);
-	  list_insert_ordered(&ready_list, &t->elem, thread_list_less_func, NULL);
+	  list_push_back (&ready_list, &t->elem);
   }
 
   intr_set_level(old_level);
@@ -642,20 +642,12 @@ next_thread_to_run (void)
   if (list_empty (&ready_list))
     return idle_thread;
   else {
-    if (!thread_mlfqs)
-      return list_entry (list_pop_front (&ready_list), struct thread, elem);
-
-    struct list *list = &ready_list;
-    struct list_elem *min = list_begin (list);
-    if (min != list_end (list)) 
-    {
-      struct list_elem *e;
-      
-      for (e = list_next (min); e != list_end (list); e = list_next (e))
-        if (thread_list_less_func (e, min, NULL))
-          min = e; 
-    }
+    struct list_elem *min;
+    
+    
+    min = list_min (&ready_list, thread_list_less_func, NULL);
     list_remove(min);
+
     return list_entry (min, struct thread, elem);
   }
 }
