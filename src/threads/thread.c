@@ -370,7 +370,8 @@ thread_preempt (void)
   if (list_empty (&ready_list))
     return;
 
-  struct thread *t = list_entry (list_front(&ready_list), struct thread, elem);
+  struct thread *t = list_entry (list_min(&ready_list, thread_list_less_func, NULL), 
+                        struct thread, elem);
   if (thread_current()->priority < t->priority)
     thread_yield();
 }
