@@ -38,10 +38,21 @@ process_execute (const char *file_name)
     return TID_ERROR;
   strlcpy (fn_copy, file_name, PGSIZE);
 
+  /* Implementation by Dong Started */
+  char *fn_to_split = palloc_get_page (0);
+  if (fn_to_split == NULL)
+    return TID_ERROR;
+  strlcpy (fn_to_split, file_name, PGSIZE);
+
+  char *thread_name, *pos_ptr;
+  thread_name = strtok_r (fn_to_split, " ", &pos_ptr);
+  /* Implementation by Dong Ended */
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (file_name, PRI_DEFAULT, start_process, fn_copy);
+  tid = thread_create (thread_name, PRI_DEFAULT, start_process, fn_copy);
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
+  palloc_free_page (fn_to_split);
   return tid;
 }
 
@@ -50,16 +61,56 @@ process_execute (const char *file_name)
 static void
 start_process (void *file_name_)
 {
-  char *file_name = file_name_;
+  char *file_name = file_name_, *pos_ptr;
   struct intr_frame if_;
   bool success;
 
+  /* Implementation by Dong Started */
+  char *name = strtok_r (file_name, " ", &pos_ptr);
+  /* Implementation by Dong Ended */
+  
   /* Initialize interrupt frame and load executable. */
   memset (&if_, 0, sizeof if_);
   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
   if_.cs = SEL_UCSEG;
   if_.eflags = FLAG_IF | FLAG_MBS;
-  success = load (file_name, &if_.eip, &if_.esp);
+  success = load (name, &if_.eip, &if_.esp);
+  
+  /* Implementation by Dong Started */
+  if (success)
+  {
+    const int ARGMAX = 32;
+    char *esp = if_.esp, *argv[ARGMAX];
+    int argc = 0;
+    
+    for (; name != NULL; name = strtok_r (NULL, " ", &pos_ptr))
+    {
+      int len = strlen (name) + 1;
+      esp -= len;
+      strlcpy (esp, name, len + 1);
+      argv[argc++] = esp;
+    }
+
+    while (((char *) if_.esp - esp) % 4 != 0) esp--;
+    esp -= 4; // word-align
+
+    for (int i = argc - 1; i >= 0; i--)
+    {
+      esp -= 4;
+      *((char **) esp) = argv[i];
+    }
+
+    esp -= 4;
+    *((char ***) esp) = argv;
+    esp -= 4;
+    *((int *) esp) = argc;
+    esp -= 4;
+    *((int *) esp) = 0;
+
+    if_.esp = esp;
+
+  }
+  /* Implementation by Dong Ended */
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
