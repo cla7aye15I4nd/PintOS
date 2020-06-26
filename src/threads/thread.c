@@ -337,6 +337,7 @@ void
 thread_exit (void) 
 {
   ASSERT (!intr_context ());
+  // printf ("***************** start thread_exit %s\n", thread_current()->name);
 
 #ifdef USERPROG
   process_exit ();
@@ -346,7 +347,8 @@ thread_exit (void)
   struct list *children = &thread_current ()->children;
   for (struct list_elem *e = list_begin(children); e != list_end(children); e = list_next(e))
     sema_up (&list_entry(e, struct thread, children_list_elem)->exit_sema);
-  lock_release (&exit_lock);
+
+  // printf ("***************** start thread_exit %s\n", thread_current()->name);
 
   while (!list_empty (&thread_current ()->files)) {
     struct file_descriptor *fd = list_entry (list_pop_front (&thread_current ()->files), struct file_descriptor, fd_elem);
@@ -354,16 +356,28 @@ thread_exit (void)
     free (fd);
   }
 
+  lock_release (&exit_lock);
+  // printf ("***************** start thread_exit %s\n", thread_current()->name);
+
   sema_up (&thread_current ()->wait_sema);
   if (thread_current () != initial_thread) 
     sema_down (&thread_current ()->exit_sema);
+
+
+  // printf ("***************** start thread_exit %s\n", thread_current()->name);
+  
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
      when it calls thread_schedule_tail(). */
   intr_disable ();
+
+  lock_acquire(&exit_lock);
   list_remove (&thread_current()->allelem);
+  lock_release(&exit_lock);
+
   thread_current ()->status = THREAD_DYING;
+
   schedule ();
   NOT_REACHED ();
 }

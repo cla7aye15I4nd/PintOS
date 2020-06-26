@@ -20,6 +20,7 @@ static struct lock filesys_lock;
 static void
 check_address (const void * addr) 
 {
+  // printf ("checking address %x\n", addr);
   if (!((addr) && is_user_vaddr (addr) && pagedir_get_page (thread_current ()->pagedir, addr))) {
     // printf ("putain a la %x!\n", addr);
     s_exit (-1);
@@ -58,8 +59,9 @@ static void
 s_exit (int status) 
 {
   thread_current ()->exit_status = status;
-  printf("%s: exit(%d)\n", thread_current()->name, status);
+  printf ("%s: exit(%d)\n", thread_current()->name, status);
   thread_exit ();
+  printf ("****************** exit done!\n");
 }
 
 static pid_t 
@@ -69,6 +71,7 @@ s_exec (const char *cmd_line)
   lock_acquire (&filesys_lock);
   int status = process_execute (cmd_line);
   lock_release (&filesys_lock);
+  // printf ("************* exec returned %d\n", status);
   return status;
 }
 

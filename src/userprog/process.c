@@ -46,6 +46,7 @@ process_execute (const char *file_name)
 
   char *thread_name, *pos_ptr;
   thread_name = strtok_r (fn_to_split, " ", &pos_ptr);
+  
   /* Implementation by Dong Ended */
 
   struct process_init_info *info = malloc(sizeof(struct process_init_info));
@@ -55,12 +56,14 @@ process_execute (const char *file_name)
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create (thread_name, PRI_DEFAULT, start_process, info);
 
+  palloc_free_page (fn_to_split);
+  
   sema_down (&info->init_done);
   if (!info->success)
     return -1;
+
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
-  palloc_free_page (fn_to_split);
   return tid;
 }
 
@@ -127,6 +130,7 @@ start_process (void *_info)
   /* Implementation by Dong Ended */
 
   /* If load failed, quit. */
+  // printf ("*************** start process %s %d\n", file_name, success);
   palloc_free_page (file_name);
   info->success = success;
   sema_up (&info->init_done);
