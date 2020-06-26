@@ -29,7 +29,7 @@ check_address (const void * addr)
 }
 
 static uint32_t
-get_argument (const void * addr, int num) {
+arg (const void * addr, int num) {
   for (int i = 0; i < 4; ++i)
     check_address (addr + i + (num << 2));
   return *((uint32_t *)(addr) + num);
@@ -249,47 +249,21 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   // printf ("system call! %x\n", f->esp);
   // get call type enum
-  int type = get_argument (f->esp, 0);
+  int type = arg (f->esp, 0);
   switch (type)
   {
-    case SYS_HALT:
-      s_halt ();
-      break;
-    case SYS_EXIT:
-      s_exit (get_argument (f->esp, 1));
-      break;
-    case SYS_EXEC:
-      f->eax = s_exec (get_argument (f->esp, 1));
-      break;
-    case SYS_WAIT:
-      f->eax = s_wait (get_argument (f->esp, 1));
-      break;
-    case SYS_CREATE:
-      f->eax = s_create (get_argument (f->esp, 1), get_argument (f->esp, 2));
-      break;
-    case SYS_REMOVE:
-      f->eax = s_remove (get_argument (f->esp, 1));
-      break;
-    case SYS_OPEN:
-      f->eax = s_open (get_argument (f->esp, 1));
-      break;
-    case SYS_FILESIZE:
-      f->eax = s_filesize (get_argument (f->esp, 1));
-      break;
-    case SYS_READ:
-      f->eax = s_read (get_argument (f->esp, 1), get_argument (f->esp, 2), get_argument (f->esp, 3));
-      break;
-    case SYS_WRITE:
-      f->eax = s_write (get_argument (f->esp, 1), get_argument (f->esp, 2), get_argument (f->esp, 3));
-      break;
-    case SYS_SEEK:
-      s_seek (get_argument (f->esp, 1), get_argument (f->esp, 2));
-      break;
-    case SYS_TELL:
-      f->eax = s_tell (get_argument (f->esp, 1));
-      break;
-    case SYS_CLOSE:
-      s_close (get_argument (f->esp, 1));
-      break;
+    case SYS_HALT:              s_halt    ();                                                   break;
+    case SYS_EXIT:              s_exit    (arg (f->esp, 1));                                    break;
+    case SYS_EXEC:    f->eax =  s_exec    (arg (f->esp, 1));                                    break;
+    case SYS_WAIT:    f->eax =  s_wait    (arg (f->esp, 1));                                    break;
+    case SYS_CREATE:  f->eax =  s_create  (arg (f->esp, 1), arg (f->esp, 2));                   break;
+    case SYS_REMOVE:  f->eax =  s_remove  (arg (f->esp, 1));                                    break;
+    case SYS_OPEN:    f->eax =  s_open    (arg (f->esp, 1));                                    break;
+    case SYS_FILESIZE:f->eax =  s_filesize(arg (f->esp, 1));                                    break;
+    case SYS_READ:    f->eax =  s_read    (arg (f->esp, 1), arg (f->esp, 2), arg (f->esp, 3));  break;
+    case SYS_WRITE:   f->eax =  s_write   (arg (f->esp, 1), arg (f->esp, 2), arg (f->esp, 3));  break;
+    case SYS_SEEK:              s_seek    (arg (f->esp, 1), arg (f->esp, 2));                   break;
+    case SYS_TELL:    f->eax =  s_tell    (arg (f->esp, 1));                                    break;
+    case SYS_CLOSE:             s_close   (arg (f->esp, 1));                                    break;
   }
 }
