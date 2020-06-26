@@ -73,7 +73,7 @@ start_process (void *_info)
   char *file_name = info->file_name, *pos_ptr;
   struct intr_frame if_;
   bool success;
-  printf("************* START PROCESS %s\n", file_name);
+  // printf("************* START PROCESS %s\n", file_name);
 
   /* Implementation by Dong Started */
   char *name = strtok_r (file_name, " ", &pos_ptr);
@@ -97,7 +97,7 @@ start_process (void *_info)
       int len = strlen (name) + 1;
       esp -= len;
       strlcpy (esp, name, len + 1);
-      printf("******* %d %s\n", ((char *) if_.esp - esp), esp);
+      // printf("******* %d %s\n", ((char *) if_.esp - esp), esp);
       argv[argc++] = esp;
     }
 
@@ -119,11 +119,11 @@ start_process (void *_info)
     esp -= 4;
     *((int *) esp) = 0;
 
-    hex_dump(0, esp, (char *)if_.esp - esp, true);
+    // hex_dump(0, esp, (char *)if_.esp - esp, true);
     if_.esp = esp;
   }
 
-  printf("******* %x\n", if_.esp);
+  // printf("******* %x\n", if_.esp);
   /* Implementation by Dong Ended */
 
   /* If load failed, quit. */
@@ -155,6 +155,9 @@ start_process (void *_info)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
+
+  // while (true);
+
   struct list *children = &thread_current ()->children;
 
   if (list_empty(children)) 
@@ -162,18 +165,21 @@ process_wait (tid_t child_tid UNUSED)
 
   struct list_elem *e;
 
-  for (e = list_begin (children); e != list_end (children); e = list_next (children))
-    if (list_entry (e, struct thread, elem_children_list)->tid)
+  for (e = list_begin (children); e != list_end (children); e = list_next (e))
+    if (list_entry (e, struct thread, children_list_elem)->tid)
       break;
 
-  struct thread *child = list_entry (e, struct thread, elem_children_list);
+  struct thread *child = list_entry (e, struct thread, children_list_elem);
   if (child->tid != child_tid)
     return -1;
 
   list_remove (e);
   
+  sema_down (&child->wait_sema);
+  int status = child->exit_status;
+  sema_down (&child->exit_sema);
 
-  return -1;
+  return status;
 }
 
 /* Free the current process's resources. */

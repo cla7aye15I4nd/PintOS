@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/fixed-point.h"
+#include "threads/synch.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -116,7 +117,11 @@ struct thread
     /* Used for syscalls */
     int exit_status;
     struct list children;
-    struct list_elem elem_children_list;
+    struct list_elem children_list_elem;
+
+    struct semaphore wait_sema;
+    struct semaphore exit_sema;
+
   };
 
 /* If false (default), use round-robin scheduler.

@@ -16,6 +16,9 @@
 #include "userprog/process.h"
 #endif
 
+// for only one thread exit at a time
+static struct lock exit_lock;
+
 /* Random value for struct thread's `magic' member.
    Used to detect stack overflow.  See the big comment at the top
    of thread.h for details. */
@@ -96,6 +99,8 @@ thread_init (void)
   lock_init (&tid_lock);
   list_init (&ready_list);
   list_init (&all_list);
+
+  lock_init (&exit_lock);
 
   /* Set up a thread structure for the running thread. */
   initial_thread = running_thread ();
@@ -335,6 +340,16 @@ thread_exit (void)
 #ifdef USERPROG
   process_exit ();
 #endif
+
+  lock_acquire (&exit_lock);
+  struct list *children = &thread_current()->children;
+  for (struct list_elem *e = list_begin(children); e != list_end(children); e = list_next(e))
+    sema_up (&list_entry(e, struct thread, children_list_elem)->exit_sema);
+  lock_release (&exit_lock);
+
+  sema_up (&thread_current ()->wait_sema);
+  if (thread_current () != initial_thread) 
+    sema_down (&thread_current ()->exit_sema);
 
   /* Remove thread from all threads list, set our status to dying,
      and schedule another process.  That process will destroy us
@@ -616,6 +631,14 @@ init_thread (struct thread *t, const char *name, int priority)
   old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   intr_set_level (old_level);
+
+  sema_init (&t->wait_sema, 0);
+  sema_init (&t->exit_sema, 0);
+  
+  list_init (&t->children);
+  if (t != initial_thread)
+    list_push_back (&thread_current()->children, &t->children_list_elem);
+
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and
