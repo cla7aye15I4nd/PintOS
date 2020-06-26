@@ -48,9 +48,16 @@ process_execute (const char *file_name)
   thread_name = strtok_r (fn_to_split, " ", &pos_ptr);
   /* Implementation by Dong Ended */
 
+  struct process_init_info *info = malloc(sizeof(struct process_init_info));
+  sema_init (&info->init_done, 0);
+  info->file_name = fn_copy;
+
   /* Create a new thread to execute FILE_NAME. */
-  tid = thread_create (thread_name, PRI_DEFAULT, start_process, fn_copy);
-  printf("*********** THREAD CREATE %s %d\n", fn_copy, tid);
+  tid = thread_create (thread_name, PRI_DEFAULT, start_process, info);
+
+  sema_down (&info->init_done);
+  if (!info->success)
+    return -1;
   if (tid == TID_ERROR)
     palloc_free_page (fn_copy); 
   palloc_free_page (fn_to_split);
@@ -60,9 +67,10 @@ process_execute (const char *file_name)
 /* A thread function that loads a user process and starts it
    running. */
 static void
-start_process (void *file_name_)
+start_process (void *_info)
 {
-  char *file_name = file_name_, *pos_ptr;
+  struct process_init_info *info = (struct process_init_info *)_info;
+  char *file_name = info->file_name, *pos_ptr;
   struct intr_frame if_;
   bool success;
   printf("************* START PROCESS %s\n", file_name);
@@ -89,7 +97,7 @@ start_process (void *file_name_)
       int len = strlen (name) + 1;
       esp -= len;
       strlcpy (esp, name, len + 1);
-      printf("******* %d %s\n", esp, esp);
+      printf("******* %d %s\n", ((char *) if_.esp - esp), esp);
       argv[argc++] = esp;
     }
 
@@ -102,19 +110,26 @@ start_process (void *file_name_)
       *((char **) esp) = argv[i];
     }
 
+    void *real_argv = esp;
+
     esp -= 4;
-    *((char ***) esp) = argv;
+    *((void **) esp) = real_argv;
     esp -= 4;
     *((int *) esp) = argc;
     esp -= 4;
     *((int *) esp) = 0;
 
+    hex_dump(0, esp, (char *)if_.esp - esp, true);
     if_.esp = esp;
   }
+
+  printf("******* %x\n", if_.esp);
   /* Implementation by Dong Ended */
 
   /* If load failed, quit. */
   palloc_free_page (file_name);
+  info->success = success;
+  sema_up (&info->init_done);
   if (!success) 
     thread_exit ();
 
@@ -140,7 +155,24 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while (true);
+  struct list *children = &thread_current ()->children;
+
+  if (list_empty(children)) 
+    return -1;
+
+  struct list_elem *e;
+
+  for (e = list_begin (children); e != list_end (children); e = list_next (children))
+    if (list_entry (e, struct thread, elem_children_list)->tid)
+      break;
+
+  struct thread *child = list_entry (e, struct thread, elem_children_list);
+  if (child->tid != child_tid)
+    return -1;
+
+  list_remove (e);
+  
+
   return -1;
 }
 
@@ -275,9 +307,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   process_activate ();
 
   /* Open executable file. */
-  printf ("*********** loading %s\n", file_name);
   file = filesys_open (file_name);
-  printf ("*********** loading %s %d\n", file_name, file == NULL);
   if (file == NULL) 
     {
       printf ("load: %s: open failed\n", file_name);
@@ -298,7 +328,6 @@ load (const char *file_name, void (**eip) (void), void **esp)
       goto done; 
     }
 
-  printf ("*********** loading\n");
   /* Read program headers. */
   file_ofs = ehdr.e_phoff;
   for (i = 0; i < ehdr.e_phnum; i++) 
@@ -494,7 +523,7 @@ setup_stack (void **esp)
     {
       success = install_page (((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
       if (success)
-        *esp = PHYS_BASE - 12;
+        *esp = PHYS_BASE;
       else
         palloc_free_page (kpage);
     }

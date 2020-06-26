@@ -112,6 +112,11 @@ struct thread
 
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
+
+    /* Used for syscalls */
+    int exit_status;
+    struct list children;
+    struct list_elem elem_children_list;
   };
 
 /* If false (default), use round-robin scheduler.
