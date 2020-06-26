@@ -14,6 +14,7 @@
 #include "threads/fixed-point.h"
 #ifdef USERPROG
 #include "userprog/process.h"
+#include "userprog/syscall.h"
 #endif
 
 // for only one thread exit at a time
@@ -342,10 +343,16 @@ thread_exit (void)
 #endif
 
   lock_acquire (&exit_lock);
-  struct list *children = &thread_current()->children;
+  struct list *children = &thread_current ()->children;
   for (struct list_elem *e = list_begin(children); e != list_end(children); e = list_next(e))
     sema_up (&list_entry(e, struct thread, children_list_elem)->exit_sema);
   lock_release (&exit_lock);
+
+  while (!list_empty (&thread_current ()->files)) {
+    struct file_descriptor *fd = list_entry (list_pop_front (&thread_current ()->files), struct file_descriptor, fd_elem);
+    close_fd (fd);
+    free (fd);
+  }
 
   sema_up (&thread_current ()->wait_sema);
   if (thread_current () != initial_thread) 
@@ -638,6 +645,9 @@ init_thread (struct thread *t, const char *name, int priority)
   list_init (&t->children);
   if (t != initial_thread)
     list_push_back (&thread_current()->children, &t->children_list_elem);
+
+  list_init (&t->files);
+  t->current_fdn = 2;
 
 }
 

@@ -156,29 +156,35 @@ int
 process_wait (tid_t child_tid UNUSED) 
 {
 
+  // printf ("PROCESS WAIT START! %d\n", child_tid);
   // while (true);
 
   struct list *children = &thread_current ()->children;
 
-  if (list_empty(children)) 
+  if (list_empty(children)) {
+    // printf ("********* putain!!!\n");
     return -1;
-
+  }
   struct list_elem *e;
 
   for (e = list_begin (children); e != list_end (children); e = list_next (e))
-    if (list_entry (e, struct thread, children_list_elem)->tid)
+    if (list_entry (e, struct thread, children_list_elem)->tid == child_tid)
       break;
 
   struct thread *child = list_entry (e, struct thread, children_list_elem);
-  if (child->tid != child_tid)
+  if (child->tid != child_tid) {
+    // printf ("********* scheisser!!!\n");
     return -1;
+  }
 
   list_remove (e);
   
   sema_down (&child->wait_sema);
   int status = child->exit_status;
-  sema_down (&child->exit_sema);
+  // printf ("PROCESS WAIT GET STATUS! %d %d\n", child_tid, status);
+  sema_up (&child->exit_sema);
 
+  // printf ("PROCESS WAIT DONE! %d\n", child_tid);
   return status;
 }
 

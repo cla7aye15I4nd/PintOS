@@ -3,6 +3,7 @@
 
 #include "threads/thread.h"
 #include "threads/synch.h"
+#include "filesys/file.h"
 
 tid_t process_execute (const char *file_name);
 int process_wait (tid_t);
@@ -13,6 +14,12 @@ struct process_init_info {
     char *file_name;
     struct semaphore init_done;
     bool success;
+};
+
+struct file_descriptor {
+    struct file *file;
+    int fdn;
+    struct list_elem fd_elem;
 };
 
 #endif /* userprog/process.h */

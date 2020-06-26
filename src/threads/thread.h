@@ -111,16 +111,19 @@ struct thread
    int nice;
    dec recent_cpu;
 
-    /* Owned by thread.c. */
-    unsigned magic;                     /* Detects stack overflow. */
+   /* Owned by thread.c. */
+   unsigned magic;                     /* Detects stack overflow. */
 
-    /* Used for syscalls */
-    int exit_status;
-    struct list children;
-    struct list_elem children_list_elem;
+   /* Used for syscalls */
+   int exit_status;
+   struct list children;
+   struct list_elem children_list_elem;
 
-    struct semaphore wait_sema;
-    struct semaphore exit_sema;
+   struct semaphore wait_sema;
+   struct semaphore exit_sema;
+
+   struct list files;
+   int current_fdn; // current num of file discriptors
 
   };
 
