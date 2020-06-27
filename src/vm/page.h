@@ -7,39 +7,40 @@
 
 #include "../lib/kernel/hash.h"
 
-enum pageStatus {
+enum page_status {
 	FRAME, SWAP, FILE
 };
 
-struct pageTableEntry {
+struct sup_page_table_entry {
 	struct hash_elem hashElem; //Must contain, see "lib/kernel/hash"
 
 	void *vPage, *phyPage;
-	enum pageStatus status;
+	enum page_status status;
 	bool writeable;
 };
 
-struct pageTable {
+struct sup_page_table {
 	struct hash hashTable;
 };
 
 //Helper Methods
-unsigned pageTableEntryHashFunc(const struct hash_elem *e, void *aux);
-bool pageTableEntryLessFunc(const struct hash_elem *a, const struct hash_elem *b, void *aux);
-void pageTableEntryDestroyFunc(struct hash_elem *e, void *aux);
+unsigned sup_page_table_entry_hash(const struct hash_elem *e, void *aux);
+bool sup_page_table_entry_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
+void sup_page_table_entry_destroy(struct hash_elem *e, void *aux);
 
 //Instantiation and Destruction
-struct pageTable *createPageTable();
-void destroyPageTable(struct pageTable *pageTable);
+struct sup_page_table *sup_page_table_create();
+void sup_page_table_destroy(struct sup_page_table *sup_page_table);
 
 //Basic methods of a table
-pageTableEntry *findPage(struct pageTable *pageTable, void *vPage);
-bool setPage(struct pageTable *pageTable, void *vPage, void *phyPage, bool writeable, enum pageStatus type);
+struct sup_page_table_entry *sup_page_table_find(struct sup_page_table *sup_page_table, void *vPage);
+bool sup_page_table_set_page(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writeable,
+							 enum page_status type);
 
 //File Mapping
-bool unMap(struct pageTable *pageTable, void *vPage);
+bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage);
 
 //Page Fault Handler
-
+bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *fault_addr, bool isWrite);
 
 #endif //PINTOS_PAGE_H

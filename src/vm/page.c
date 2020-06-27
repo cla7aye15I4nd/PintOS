@@ -4,20 +4,22 @@
 
 #include "page.h"
 #include "../threads/malloc.h"
+#include "../threads/thread.h"
+#include "../threads/vaddr.h"
 
-unsigned pageTableEntryHashFunc(const struct hash_elem *e, void *aux) {
-	struct pageTableEntry *entry = hash_entry(e, struct pageTable, hashElem);
+unsigned sup_page_table_entry_hash(const struct hash_elem *e, void *aux) {
+	struct sup_page_table_entry *entry = hash_entry(e, struct sup_page_table, hashElem);
 	return hash_bytes(entry->vPage, sizeof(entry->vPage));
 }
 
-bool pageTableEntryLessFunc(const struct hash_elem *a, const struct hash_elem *b, void *aux) {
-	struct pageTableEntry *entryA = hash_entry(a, struct pageTable, hashElem);
-	struct pageTableEntry *entryB = hash_entry(b, struct pageTable, hashElem);
+bool sup_page_table_entry_less(const struct hash_elem *a, const struct hash_elem *b, void *aux) {
+	struct sup_page_table_entry *entryA = hash_entry(a, struct sup_page_table, hashElem);
+	struct sup_page_table_entry *entryB = hash_entry(b, struct sup_page_table, hashElem);
 	return entryA->vPage < entryB->vPage;
 }
 
-void pageTableEntryDestroyFunc(struct hash_elem *e, void *aux) {
-	struct pageTableEntry *entry = hash_entry(e, struct pageTable, hashElem);
+void sup_page_table_entry_destroy(struct hash_elem *e, void *aux) {
+	struct sup_page_table_entry *entry = hash_entry(e, struct sup_page_table, hashElem);
 	if (entry->status == FRAME) {
 		//TODO: Call Corresponding free function
 	} else if (entry->status == SWAP) {
@@ -26,53 +28,75 @@ void pageTableEntryDestroyFunc(struct hash_elem *e, void *aux) {
 	free(entry);
 }
 
-struct pageTable *createPageTable() {
-	struct pageTable *ret = (struct pageTable *) malloc(sizeof(struct pageTable));
-	hash_init(&ret->hashTable, pageTableEntryHashFunc, pageTableEntryLessFunc, NULL);
+struct sup_page_table *sup_page_table_create() {
+	struct sup_page_table *ret = (struct sup_page_table *) malloc(sizeof(struct sup_page_table));
+	hash_init(&ret->hashTable, sup_page_table_entry_hash, sup_page_table_entry_less, NULL);
 	return ret;
 }
 
-void destroyPageTable(struct pageTable *pageTable) {
-	hash_destroy(&pageTable->hashTable, pageTableEntryDestroyFunc);
-	free(pageTable);
+void sup_page_table_destroy(struct sup_page_table *sup_page_table) {
+	hash_destroy(&sup_page_table->hashTable, sup_page_table_entry_destroy);
+	free(sup_page_table);
 }
 
-pageTableEntry *findPage(struct pageTable *pageTable, void *vPage) {
-	struct pageTableEntry *tmp = hash_entry(a, struct pageTable, hashElem);
+struct sup_page_table_entry *sup_page_table_find(struct sup_page_table *sup_page_table, void *vPage) {
+	struct sup_page_table_entry *tmp = hash_entry(a, struct sup_page_table, hashElem);
 	tmp->vPage = vPage;
-	struct hash_elem *ret = hash_find(&pageTable->hashTable, &tmp->hashElem);
+	struct hash_elem *ret = hash_find(&sup_page_table->hashTable, &tmp->hashElem);
 	if (ret != NULL) {
-		return hash_entry(ret, struct pageTable, hashElem);
+		return hash_entry(ret, struct sup_page_table, hashElem);
 	} else {
 		return NULL;
 	}
 }
 
-bool setFrame(struct pageTable *pageTable, void *vPage, void *phyPage, bool writeable) {
-	if (findPage(pageTable, vPage) == NULL) {
-		struct pageTableEntry *newEntry = (struct pageTableEntry *) malloc(sizeof(struct pageTableEntry));
+bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writeable) {
+	if (findPage(sup_page_table, vPage) == NULL) {
+		struct sup_page_table_entry *newEntry = (struct sup_page_table_entry *) malloc(
+				sizeof(struct sup_page_table_entry));
 		newEntry->vPage = vPage;
 		newEntry->phyPage = phyPage;
 		newEntry->status = FRAME;
 		newEntry->writeable = writeable;
-		hash_insert(&pageTable->hashTable, &newEntry->hashElem);
+		hash_insert(&sup_page_table->hashTable, &newEntry->hashElem);
 		return true;
 	} else {
 		return false;
 	}
 }
 
-bool setPage(struct pageTable *pageTable, void *vPage, void *phyPage, bool writeable, enum pageStatus type) {
+bool sup_page_table_set_page(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writeable,
+							 enum page_status type) {
 	//TODO: Needs lock?
 	if (type == FRAME) {
-		return setFrame(pageTable, vPage, phyPage, writeable);
+		return sup_page_table_set_frame(sup_page_table, vPage, phyPage, writeable);
 	} else if (type == SWAP) {
-
+		//TODO
 	} else {
 
 	}
 }
 
-bool unMap(struct pageTable *pageTable, void *vPage) {
+bool unMap(struct sup_page_table *sup_page_table, void *vPage) {
+	//TODO
+}
 
+bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *vPage) {
+	struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, fault_page);
+	if (entry == NULL) return false;
+	if (entry->status == FRAME) return true;
+
+	//
+}
+
+bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *fault_addr, bool isWrite,
+						void *esp) {
+	//Invalid Access
+	if (!is_user_vaddr(fault_addr)) return false;
+
+	void *fault_page = pg_round_down(fault_addr);
+	if (on_stack(esp, fault_addr)) {
+		//TODO: Stack Growth
+	}
+	return sup_page_table_load(sup_page_table, page_dir, fault_page);
 }
