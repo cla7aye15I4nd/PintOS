@@ -13,7 +13,7 @@
 #include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
-static void s_exit (int);
+void s_exit (int);
 
 static struct lock filesys_lock;
 
@@ -55,7 +55,7 @@ s_halt (void)
   shutdown_power_off();
 }
 
-static void
+void
 s_exit (int status) 
 {
   thread_current ()->exit_status = status;
