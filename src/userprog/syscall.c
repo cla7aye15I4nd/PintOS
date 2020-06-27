@@ -125,10 +125,10 @@ find_fd (int fdn)
 }
 
 void
-close_fd (struct file_descriptor *fd)
+close_f (struct file *f)
 {
   lock_acquire (&filesys_lock);
-  file_close (fd->file);
+  file_close (f);
   lock_release (&filesys_lock);
 }
 
@@ -238,7 +238,7 @@ s_close (int fdn)
   if (fd == NULL)
     s_exit (-1);
 
-  close_fd (fd);
+  close_f (fd->file);
   list_remove (&fd->fd_elem);
   free (fd);
 }

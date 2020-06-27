@@ -5,6 +5,6 @@
 
 void syscall_init (void);
 void s_exit (int);
-void close_fd (struct file_descriptor *);
+void close_f (struct file *);
 
 #endif /* userprog/syscall.h */

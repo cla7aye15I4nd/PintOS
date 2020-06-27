@@ -15,6 +15,7 @@
 #ifdef USERPROG
 #include "userprog/process.h"
 #include "userprog/syscall.h"
+#include "filesys/filesys.h"
 #endif
 
 // for only one thread exit at a time
@@ -352,9 +353,12 @@ thread_exit (void)
 
   while (!list_empty (&thread_current ()->files)) {
     struct file_descriptor *fd = list_entry (list_pop_front (&thread_current ()->files), struct file_descriptor, fd_elem);
-    close_fd (fd);
+    close_f (fd->file);
     free (fd);
   }
+
+  if (thread_current ()->exec_file != NULL)
+    close_f (thread_current ()->exec_file);
 
   lock_release (&exit_lock);
   // printf ("***************** start thread_exit %s\n", thread_current()->name);
@@ -662,6 +666,8 @@ init_thread (struct thread *t, const char *name, int priority)
 
   list_init (&t->files);
   t->current_fdn = 2;
+  
+  t->exec_file = NULL;
 
 }
 
