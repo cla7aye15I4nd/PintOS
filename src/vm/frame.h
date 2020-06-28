@@ -5,6 +5,9 @@
 #ifndef PINTOS_FRAME_H
 #define PINTOS_FRAME_H
 
+#include "../threads/palloc.h"
+#include "../lib/kernel/hash.h"
+
 struct frame_entry {
     void *frame;
     void *upage;
@@ -18,7 +21,7 @@ void *frame_init();
 
 void *frame_query(void *frame);
 
-void *frame_get(enum palloc_flags, void *upage);
+void *frame_get(enum palloc_flags flag, void *upage);
 
 void *frame_free(void *frame);
 
