@@ -7,6 +7,7 @@
 
 #include "../threads/palloc.h"
 #include "../lib/kernel/hash.h"
+#include "../threads/thread.h"
 
 struct frame_entry {
     void *frame;
@@ -19,14 +20,13 @@ struct frame_entry {
 
 void *frame_init();
 
-void *frame_query(void *frame);
-
 void *frame_get(enum palloc_flags flag, void *upage);
 
 void *frame_free(void *frame);
+void *frame_remove_entry(void *frame); //Remove entry but keep the frame
 
 bool frame_if_pinned(void *frame);
-
-bool frame_release_pinned(void *frame);
+void frame_pin(void *frame);
+void frame_release_pinned(void *frame);
 
 #endif //PINTOS_FRAME_H

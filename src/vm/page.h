@@ -44,4 +44,8 @@ bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage);
 //Page Fault Handler
 bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *fault_addr, bool isWrite);
 
+//Page State Setting
+void sup_page_set_swap(struct sup_page_table*, void *, uint32_t);
+void sup_page_set_dirty(struct sup_page_table*, void *, bool);
+
 #endif //PINTOS_PAGE_H
