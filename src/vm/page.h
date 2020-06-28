@@ -17,6 +17,7 @@ struct sup_page_table_entry {
 	void *vPage, *phyPage;
 	enum page_status status;
 	bool writeable;
+	uint32_t swap_index;
 };
 
 struct sup_page_table {

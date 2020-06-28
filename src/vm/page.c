@@ -6,6 +6,10 @@
 #include "../threads/malloc.h"
 #include "../threads/thread.h"
 #include "../threads/vaddr.h"
+#include "../threads/palloc.h"
+#include "../userprog/pagedir.h"
+#include "../vm/frame.h"
+#include "../vm/swap.h"
 
 unsigned sup_page_table_entry_hash(const struct hash_elem *e, void *aux) {
 	struct sup_page_table_entry *entry = hash_entry(e, struct sup_page_table, hashElem);
@@ -21,9 +25,9 @@ bool sup_page_table_entry_less(const struct hash_elem *a, const struct hash_elem
 void sup_page_table_entry_destroy(struct hash_elem *e, void *aux) {
 	struct sup_page_table_entry *entry = hash_entry(e, struct sup_page_table, hashElem);
 	if (entry->status == FRAME) {
-		//TODO: Call Corresponding free function
+		frame_free(entry->phyPage);
 	} else if (entry->status == SWAP) {
-		//TODO: Call Corresponding free function
+		swap_free(entry->swap_index);
 	}
 	free(entry);
 }
@@ -67,26 +71,62 @@ bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage
 
 bool sup_page_table_set_page(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writeable,
 							 enum page_status type) {
-	//TODO: Needs lock?
 	if (type == FRAME) {
 		return sup_page_table_set_frame(sup_page_table, vPage, phyPage, writeable);
 	} else if (type == SWAP) {
 		//TODO
 	} else {
-
+		//TODO
 	}
 }
 
 bool unMap(struct sup_page_table *sup_page_table, void *vPage) {
-	//TODO
+	//TODO: Unmap mapping: file->vaddr
 }
 
-bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *vPage) {
-	struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, fault_page);
+bool load_from_swap(struct sup_page_table_entry *entry, void *frame) {
+	swap_in(entry->swap_index, frame);
+	return true;
+}
+
+void load_from_file(struct sup_page_table_entry *entry, void *frame) {
+	//TODO: Load from file
+}
+
+bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *page) {
+	struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, page);
 	if (entry == NULL) return false;
 	if (entry->status == FRAME) return true;
 
-	//
+	//Obtain a frame
+	void *frame = frame_get(PAL_USER, page);
+	if (frame == NULL) return false;
+
+	//Load into the frame
+	bool success = true;
+	switch (entry->status) {
+		case SWAP:
+			success = load_from_swap(entry, frame);
+			break;
+		case FILE:
+			success = load_from_file(entry, frame);
+			break;
+		default:
+			break;
+	}
+
+	//Add entry to page directory
+	if ((!success) || !pagedir_set_page(page_dir, page, frame, writable)) {
+		frame_free(frame);
+		return false;
+	}
+
+	//Add entry to sup page table
+	entry->status = FRAME;
+	entry->phyPage = frame;
+
+	frame_release_pinned(frame);
+	return true;
 }
 
 bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *fault_addr, bool isWrite,

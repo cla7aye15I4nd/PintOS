@@ -5,6 +5,7 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 #include "userprog/syscall.h"
+#include "../threads/thread.h"
 
 /* Number of page faults processed. */
 static long long page_fault_cnt;
@@ -146,6 +147,7 @@ page_fault(struct intr_frame *f) {
 
 #ifdef VM
 	//Handle Page Fault
+	void *esp = user ? f->esp : thread_current()->esp;
 	if (not_present && page_fault_handler()) {
 		return;
 	}
