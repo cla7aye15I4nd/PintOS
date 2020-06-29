@@ -24,6 +24,7 @@ struct sup_page_table_entry {
 	uint32_t swap_index;
 
 	//For file
+	struct file *file;
 	off_t offset;
 	uint32_t read_bytes, zero_bytes
 };

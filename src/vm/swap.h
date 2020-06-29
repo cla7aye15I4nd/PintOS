@@ -14,7 +14,7 @@ struct block *swap_block_device;
 struct bitmap *swap_slot; //1: available, 0: unavailable
 struct lock swap_lock;
 
-const size_t SECTOR_PER_PAGE = PGSIZE / BLOCK_SECTOR_SIZE;
+static const size_t SECTOR_PER_PAGE = PGSIZE / BLOCK_SECTOR_SIZE;
 
 void swap_table_init();
 

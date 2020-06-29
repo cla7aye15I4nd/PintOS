@@ -2,7 +2,7 @@
 // Created by gabriel on 6/26/20.
 //
 
-#include "page.h"
+#include "../vm/page.h"
 #include "../threads/malloc.h"
 #include "../threads/thread.h"
 #include "../threads/vaddr.h"
@@ -55,7 +55,7 @@ struct sup_page_table_entry *sup_page_table_find(struct sup_page_table *sup_page
 }
 
 bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writable) {
-	if (findPage(sup_page_table, vPage) != NULL) return false;
+	if (sup_page_table_find(sup_page_table, vPage) != NULL) return false;
 
 	struct sup_page_table_entry *newEntry = (struct sup_page_table_entry *) malloc(
 			sizeof(struct sup_page_table_entry));
@@ -69,7 +69,7 @@ bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage
 }
 
 bool sup_page_table_set_swap(struct sup_page_table *sup_page_table, void *vPage, uint32_t swap_index) {
-	struct sup_page_table_entry *cur = findPage(sup_page_table, vPage);
+	struct sup_page_table_entry *cur = sup_page_table_find(sup_page_table, vPage);
 	if (cur == NULL) return false;
 
 	cur->status = SWAP;
@@ -80,15 +80,16 @@ bool sup_page_table_set_swap(struct sup_page_table *sup_page_table, void *vPage,
 
 bool sup_page_table_set_file(struct sup_page_table *sup_page_table, void *vPage, struct file *file, off_t offset,
 							 uint32_t read_bytes, uint32_t zero_bytes) {
-	if (findPage(sup_page_table, vPage) != NULL) return false;
-
+	if (sup_page_table_find(sup_page_table, vPage) != NULL) return false;
 	struct sup_page_table_entry *newEntry = (struct sup_page_table_entry *) malloc(
 			sizeof(struct sup_page_table_entry));
+
 	newEntry->vPage = vPage;
 	newEntry->phyPage = NULL;
 	newEntry->status = FILE;
 	newEntry->dirty = false;
 	newEntry->offset = offset;
+	newEntry->file = file;
 	newEntry->read_bytes = read_bytes;
 	newEntry->zero_bytes = zero_bytes;
 
@@ -106,6 +107,35 @@ bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage, ui
 		frame_pin(entry->phyPage);
 	}
 
+	bool dirty;
+	switch (entry->status) {
+		case FRAME:
+			dirty = entry->dirty;
+			dirty |= pagedir_is_dirty(page_dir, entry->vPage);
+			dirty |= pagedir_is_dirty(page_dir, entry->phyPage);
+			if (dirty) {
+				file_write_at(file, entry->vPage, bytes, offset);
+			}
+			frame_free(entry->phyPage);
+			pagedir_clear_page(page_dir, entry->vPage);
+			break;
+		case SWAP:
+			dirty = entry->dirty;
+			dirty |= pagedir_is_dirty(page_dir, entry->vPage);
+			if (dirty) {
+				void *tmp = palloc_get_page(0);
+				swap_in(entry->swap_index, tmp);
+				file_write_at(file, tmp, PGSIZE, offset);
+				palloc_free_page(tmp);
+			}
+			swap_free(entry->swap_index);
+			break;
+		case FILE:
+			break;
+	}
+
+	hash_delete(&sup_page_table->hashTable, &entry->hashElem);
+	return true;
 }
 
 bool load_from_swap(struct sup_page_table_entry *entry, void *frame) {
@@ -114,7 +144,8 @@ bool load_from_swap(struct sup_page_table_entry *entry, void *frame) {
 }
 
 bool load_from_file(struct sup_page_table_entry *entry, void *frame) {
-	//TODO: Load from file
+	int read = file_read_at(entry->file, frame, entry->read_bytes, entry->offset);
+	memset(frame + read, 0, entry->zero_bytes);
 	return true;
 }
 
@@ -161,9 +192,9 @@ bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_di
 	if (!is_user_vaddr(fault_addr)) return false;
 
 	void *fault_page = pg_round_down(fault_addr);
-	if (on_stack(esp, fault_addr)) {
-		//TODO: Stack Growth
-	}
+//	if (on_stack(esp, fault_addr)) {
+//		//TODO: Stack Growth
+//	}
 	return sup_page_table_load(sup_page_table, page_dir, fault_page);
 }
 
