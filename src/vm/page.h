@@ -17,7 +17,7 @@ struct sup_page_table_entry {
 
 	void *vPage, *phyPage;
 	enum page_status status;
-	bool writeable;
+	bool writable;
 	bool dirty;
 
 	//For swap
@@ -53,8 +53,8 @@ bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage, ui
 						  off_t offset, size_t bytes);
 
 //Page Fault Handler
-bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *fault_addr, bool isWrite);
-
+bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *fault_addr, bool isWrite,
+						void *esp);
 //Page State Setting
 void sup_page_set_dirty(struct sup_page_table *sup_page_table, void *vPage, bool dirty);
 

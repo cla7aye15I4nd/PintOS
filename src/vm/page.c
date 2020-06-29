@@ -12,18 +12,18 @@
 #include "../vm/swap.h"
 
 unsigned sup_page_table_entry_hash(const struct hash_elem *e, void *aux) {
-	struct sup_page_table_entry *entry = hash_entry(e, struct sup_page_table, hashElem);
+	struct sup_page_table_entry *entry = hash_entry(e, struct sup_page_table_entry, hashElem);
 	return hash_bytes(entry->vPage, sizeof(entry->vPage));
 }
 
 bool sup_page_table_entry_less(const struct hash_elem *a, const struct hash_elem *b, void *aux) {
-	struct sup_page_table_entry *entryA = hash_entry(a, struct sup_page_table, hashElem);
-	struct sup_page_table_entry *entryB = hash_entry(b, struct sup_page_table, hashElem);
+	struct sup_page_table_entry *entryA = hash_entry(a, struct sup_page_table_entry, hashElem);
+	struct sup_page_table_entry *entryB = hash_entry(b, struct sup_page_table_entry, hashElem);
 	return entryA->vPage < entryB->vPage;
 }
 
 void sup_page_table_entry_destroy(struct hash_elem *e, void *aux) {
-	struct sup_page_table_entry *entry = hash_entry(e, struct sup_page_table, hashElem);
+	struct sup_page_table_entry *entry = hash_entry(e, struct sup_page_table_entry, hashElem);
 	if (entry->status == FRAME) {
 		frame_free(entry->phyPage);
 	} else if (entry->status == SWAP) {
@@ -44,17 +44,17 @@ void sup_page_table_destroy(struct sup_page_table *sup_page_table) {
 }
 
 struct sup_page_table_entry *sup_page_table_find(struct sup_page_table *sup_page_table, void *vPage) {
-	struct sup_page_table_entry *tmp = hash_entry(a, struct sup_page_table, hashElem);
-	tmp->vPage = vPage;
-	struct hash_elem *ret = hash_find(&sup_page_table->hashTable, &tmp->hashElem);
+	struct sup_page_table_entry tmp;
+	tmp.vPage = vPage;
+	struct hash_elem *ret = hash_find(&sup_page_table->hashTable, &tmp.hashElem);
 	if (ret != NULL) {
-		return hash_entry(ret, struct sup_page_table, hashElem);
+		return hash_entry(ret, struct sup_page_table_entry, hashElem);
 	} else {
 		return NULL;
 	}
 }
 
-bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writeable) {
+bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writable) {
 	if (findPage(sup_page_table, vPage) != NULL) return false;
 
 	struct sup_page_table_entry *newEntry = (struct sup_page_table_entry *) malloc(
@@ -62,7 +62,7 @@ bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage
 	newEntry->vPage = vPage;
 	newEntry->phyPage = phyPage;
 	newEntry->status = FRAME;
-	newEntry->writeable = writeable;
+	newEntry->writable = writable;
 	newEntry->dirty = false;
 	hash_insert(&sup_page_table->hashTable, &newEntry->hashElem);
 	return true;
@@ -98,7 +98,13 @@ bool sup_page_table_set_file(struct sup_page_table *sup_page_table, void *vPage,
 
 bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage, uint32_t *page_dir, struct file *file,
 						  off_t offset, size_t bytes) {
-	struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, page);
+	struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, vPage);
+	if (entry == NULL) PANIC("Can't unmap an non-existent page");
+
+	//Pin if necessary
+	if (entry->status == FRAME) {
+		frame_pin(entry->phyPage);
+	}
 
 }
 
@@ -107,8 +113,9 @@ bool load_from_swap(struct sup_page_table_entry *entry, void *frame) {
 	return true;
 }
 
-void load_from_file(struct sup_page_table_entry *entry, void *frame) {
+bool load_from_file(struct sup_page_table_entry *entry, void *frame) {
 	//TODO: Load from file
+	return true;
 }
 
 bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *page) {
@@ -121,17 +128,18 @@ bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_d
 	if (frame == NULL) return false;
 
 	//Load into the frame
-	bool writable = true;
+	bool success = true;
 	switch (entry->status) {
 		case SWAP:
-			writable = load_from_swap(entry, frame);
+			success = load_from_swap(entry, frame);
 			break;
 		case FILE:
-			writable = load_from_file(entry, frame);
+			success = load_from_file(entry, frame);
 			break;
 		default:
 			break;
 	}
+	bool writable = entry->writable;
 
 	//Add entry to page directory
 	if ((!success) || !pagedir_set_page(page_dir, page, frame, writable)) {
@@ -160,7 +168,7 @@ bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_di
 }
 
 void sup_page_set_dirty(struct sup_page_table *sup_page_table, void *vPage, bool dirty) {
-	struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, page);
+	struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, vPage);
 	if (entry == NULL) PANIC("Page doesn't exist");
 
 	entry->dirty |= dirty;
