@@ -26,7 +26,7 @@ struct sup_page_table_entry {
 	//For file
 	off_t offset;
 	uint32_t read_bytes, zero_bytes
-}
+};
 
 struct sup_page_table {
 	struct hash hashTable;
