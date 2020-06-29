@@ -31,6 +31,15 @@
 #else
 #include "tests/threads/tests.h"
 #endif
+
+#ifdef VM
+#include "vm/frame.h"
+#include "vm/swap.h"
+#else
+#include "vm/frame.h"
+#include "vm/swap.h"
+#endif
+
 #ifdef FILESYS
 #include "devices/block.h"
 #include "devices/ide.h"
@@ -99,6 +108,13 @@ pintos_init (void)
   malloc_init ();
   paging_init ();
 
+#ifdef VM
+    /* Initialize Virtual memory system. (Project 3) */
+  frame_init();
+#else
+  frame_init();
+#endif
+
   /* Segmentation. */
 #ifdef USERPROG
   tss_init ();
@@ -125,6 +141,10 @@ pintos_init (void)
   ide_init ();
   locate_block_devices ();
   filesys_init (format_filesys);
+#endif
+
+#ifdef VM
+  swap_init();
 #endif
 
   printf("init_page_dir[pd_no(ptov(0))] %X\n", init_page_dir[pd_no(ptov(0))]);

@@ -18,12 +18,12 @@ struct frame_entry {
     bool pinned;
 };
 
-void *frame_init();
+void frame_init();
 
-void *frame_get(enum palloc_flags flag, void *upage);
+void* frame_get(enum palloc_flags flag, void *upage);
 
-void *frame_free(void *frame);
-void *frame_remove_entry(void *frame); //Remove entry but keep the frame
+void frame_free(void *frame);
+void frame_remove_entry(void *frame); //Remove entry but keep the frame
 
 bool frame_if_pinned(void *frame);
 void frame_pin(void *frame);
