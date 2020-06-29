@@ -18,18 +18,18 @@
 static struct hash frame_table;
 static struct list frame_list;
 static struct lock global_lock;
-struct frame_item *cur_frame;
+struct list_elem *cur_frame;
 
 void frame_free_op(void *frame, bool real);
 
 static unsigned frame_hash_hash_func(const struct hash_elem *element, void *aux UNUSED) {
-    struct frame_entry *frame = hash_entry(element, frame_entry, hash_elem);
+    struct frame_entry *frame = hash_entry(element, struct frame_entry, hash_elem);
     return hash_bytes(&frame->frame, sizeof(frame->frame));
 }
 
 static bool frame_hash_less_func(const struct hash_elem *lhs, const struct hash_elem *rhs, void *aux UNUSED) {
-    struct frame_entry *lhs_frame = hash_entry(lhs, frame_entry, hash_elem);
-    struct frame_entry *rhs_frame = hash_entry(rhs, frame_entry, hash_elem);
+    struct frame_entry *lhs_frame = hash_entry(lhs, struct frame_entry, hash_elem);
+    struct frame_entry *rhs_frame = hash_entry(rhs, struct frame_entry, hash_elem);
     return lhs_frame->frame < rhs_frame->frame;
 }
 
@@ -54,7 +54,7 @@ struct frame_entry *next_frame() {
         cur_frame = list_next(cur_frame);
     }
 
-    struct frame_entry entry = list_entry(cur_frame, struct frame_entry, list_element);
+    struct frame_entry *entry = list_entry(cur_frame, struct frame_entry, list_elem);
     return entry;
 }
 
@@ -64,7 +64,7 @@ struct frame_entry *next_evicted_frame(void *pagedir) {
         PANIC("Empty frame table!");
     }
     size_t it = 0;
-    for (it = 0; i <= 2 * size; ++it) {
+    for (it = 0; it <= 2 * size; ++it) {
         struct frame_entry *entry = next_frame();
         if (entry->pinned) continue;
         if (pagedir_is_accessed(pagedir, entry->upage)) {
@@ -85,7 +85,7 @@ void *frame_get(enum palloc_flags flag, void *upage) {
     if (page == NULL) {
         struct frame_entry *evicted_frame = next_evicted_frame(thread_current()->pagedir);
         void *pd = evicted_frame->thread->pagedir;
-        pagedir_clear_page(pd, evicted->frame->upage);
+        pagedir_clear_page(pd, evicted_frame->upage);
 
         bool dirty = pagedir_is_dirty(pd, evicted_frame->upage) || pagedir_is_dirty(pd, evicted_frame->frame);
         uint32_t swap_index = swap_out(evicted_frame->frame);
@@ -99,26 +99,26 @@ void *frame_get(enum palloc_flags flag, void *upage) {
 
     ASSERT(page != NULL);
     struct frame_entry *entry = malloc(sizeof(struct frame_entry));
-    ASSERT(frame != NULL);
-    frame->frame = page;
-    frame->upage = upage;
-    frame->thread = thread_current();
-    frame->pinned = true;
+    ASSERT(entry != NULL);
+    entry->frame = page;
+    entry->upage = upage;
+    entry->thread = thread_current();
+    entry->pinned = true;
 
-    hash_insert(&frame_table, &frame->hash_elem);
-    list_push_back(&frame_list, &frame->list_elem);
+    hash_insert(&frame_table, &entry->hash_elem);
+    list_push_back(&frame_list, &entry->list_elem);
 
     lock_release(&global_lock);
     return page;
 }
 
-void *frame_free(void *frame) {
+void frame_free(void *frame) {
     lock_acquire(&global_lock);
     frame_free_op(frame, true);
     lock_release(&global_lock);
 }
 
-void *frame_remove_entry(void *frame) {
+void frame_remove_entry(void *frame) {
     lock_acquire(&global_lock);
     frame_free_op(frame, false);
     lock_release(&global_lock);
@@ -129,12 +129,12 @@ void frame_free_op(void *frame, bool real) {
     tmp.frame = frame;
     struct hash_elem *hash = hash_find(&frame_table, &(tmp.hash_elem));
     if (hash == NULL) {
-        PANIC("Free a frame not in the frame table").
+        PANIC("Free a frame not in the frame table");
     }
 
-    struct fame_entry *entry = hash_entry(hash, strct frame_entry, hash_elem);
+    struct frame_entry *entry = hash_entry(hash, struct frame_entry, hash_elem);
     hash_delete(&frame_table, &entry->hash_elem);
-    list_remove(&entry->list->elem);
+    list_remove(&entry->list_elem);
 
     if (real) palloc_free_page(frame);
     free(entry);
@@ -145,16 +145,16 @@ bool frame_if_pinned(void *frame) {
     if (entry == NULL) {
         PANIC("try_to_check_frame_that_does_not_exist");
     }
-    return entry -> pinnned;
+    return entry -> pinned;
 }
 
 void frame_set_pinned(void *frame, bool value) {
-    lock_acquire(&global_clock);
+    lock_acquire(&global_lock);
 
     struct frame_entry *entry = frame_query(frame);
     if (entry == NULL) {
         PANIC("Try to pin/unpin frame that does not exist");
-        lock_release(&global_clock);
+        lock_release(&global_lock);
         return false;
     }
 
