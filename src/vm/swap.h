@@ -10,12 +10,6 @@
 #include "../threads/vaddr.h"
 #include "../threads/synch.h"
 
-struct block *swap_block_device;
-struct bitmap *swap_slot; //1: available, 0: unavailable
-struct lock swap_lock;
-
-static const size_t SECTOR_PER_PAGE = PGSIZE / BLOCK_SECTOR_SIZE;
-
 void swap_table_init();
 
 //In and Out is relative to memory

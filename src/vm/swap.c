@@ -5,6 +5,12 @@
 #include "swap.h"
 #include "../lib/debug.h"
 
+struct block *swap_block_device;
+struct bitmap *swap_slot; //1: available, 0: unavailable
+struct lock swap_lock;
+
+const size_t SECTOR_PER_PAGE = PGSIZE / BLOCK_SECTOR_SIZE;
+
 void swap_table_init() {
 	swap_block_device = block_get_role(BLOCK_SWAP);
 	swap_slot = bitmap_create(block_size(swap_block_device) / SECTOR_PER_PAGE);
