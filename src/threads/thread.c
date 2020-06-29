@@ -349,16 +349,16 @@ thread_exit (void)
   for (struct list_elem *e = list_begin(children); e != list_end(children); e = list_next(e))
     sema_up (&list_entry(e, struct thread, children_list_elem)->exit_sema);
 
-  // printf ("***************** start thread_exit %s\n", thread_current()->name);
+  #ifdef USERPROG
+    while (!list_empty (&thread_current ()->files)) {
+      struct file_descriptor *fd = list_entry (list_pop_front (&thread_current ()->files), struct file_descriptor, fd_elem);
+      close_f (fd->file);
+      free (fd);
+    }
 
-  while (!list_empty (&thread_current ()->files)) {
-    struct file_descriptor *fd = list_entry (list_pop_front (&thread_current ()->files), struct file_descriptor, fd_elem);
-    close_f (fd->file);
-    free (fd);
-  }
-
-  if (thread_current ()->exec_file != NULL)
-    close_f (thread_current ()->exec_file);
+    if (thread_current ()->exec_file != NULL)
+      close_f (thread_current ()->exec_file);
+  #endif
 
   lock_release (&exit_lock);
   // printf ("***************** start thread_exit %s\n", thread_current()->name);
