@@ -90,8 +90,8 @@ void *frame_get(enum palloc_flags flag, void *upage) {
         bool dirty = pagedir_is_dirty(pd, evicted_frame->upage) || pagedir_is_dirty(pd, evicted_frame->frame);
         uint32_t swap_index = swap_out(evicted_frame->frame);
 
-        sup_page_set_swap(evicted_frame->thread->sup_page_table, evicted_frame->upage, swap_index);
-        sup_page_set_dirty(evicted_frame->thread->sup_page_table, evicted_frame->upage, dirty);
+//        sup_page_set_swap(evicted_frame->thread->sup_page_table, evicted_frame->upage, swap_index);
+//        sup_page_set_dirty(evicted_frame->thread->sup_page_table, evicted_frame->upage, dirty);
         frame_free_op(evicted_frame->frame, true);
 
         page = palloc_get_page(flag | PAL_USER);
