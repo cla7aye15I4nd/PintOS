@@ -98,6 +98,7 @@ bool sup_page_table_set_file(struct sup_page_table *sup_page_table, void *vPage,
 
 bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage, uint32_t *page_dir, struct file *file,
 						  off_t offset, size_t bytes) {
+	struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, page);
 
 }
 
@@ -120,13 +121,13 @@ bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_d
 	if (frame == NULL) return false;
 
 	//Load into the frame
-	bool success = true;
+	bool writable = true;
 	switch (entry->status) {
 		case SWAP:
-			success = load_from_swap(entry, frame);
+			writable = load_from_swap(entry, frame);
 			break;
 		case FILE:
-			success = load_from_file(entry, frame);
+			writable = load_from_file(entry, frame);
 			break;
 		default:
 			break;
