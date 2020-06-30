@@ -203,8 +203,6 @@ process_exit(void) {
 		struct mmap *ret = list_entry(e, struct mmap, mmap_elem);
 		s_munmap(ret->id);
 	}
-	sup_page_table_destroy(thread_current()->sup_page_table);
-	sup_page_table = NULL;
 #endif
 
 	/* Destroy the current process's page directory and switch back
@@ -222,6 +220,11 @@ process_exit(void) {
 		pagedir_activate(NULL);
 		pagedir_destroy(pd);
 	}
+
+#ifdef VM
+	sup_page_table_destroy(thread_current()->sup_page_table);
+	sup_page_table = NULL;
+#endif
 }
 
 /* Sets up the CPU for running user code in the current
@@ -562,7 +565,7 @@ install_page(void *upage, void *kpage, bool writable) {
 	/* Verify that there's not already a page at that virtual
 	   address, then map our page there. */
 	bool ret = pagedir_get_page(t->pagedir, upage) == NULL
-			&& pagedir_set_page(t->pagedir, upage, kpage, writable);
+			   && pagedir_set_page(t->pagedir, upage, kpage, writable);
 
 #ifdef VM
 	ret &= sup_page_table_set_frame(t->sup_page_table, upage, kpage, writable);
