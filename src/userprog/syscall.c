@@ -19,11 +19,6 @@
 static void syscall_handler(struct intr_frame *);
 void s_exit(int);
 
-#ifdef VM
-static mapid_t s_mmap(mapid_t, void *);
-void s_munmap(mapid_t);
-#endif
-
 static struct lock filesys_lock;
 
 static void
@@ -300,14 +295,14 @@ static file_descriptor *get_file_descriptor(int fd) {
 
 static mmap *get_mmap(mapid_t id) {
 	for (struct list_elem *e = list_begin(&thread_current()->mmap_list);
-		 e != list_end(&thread_current()->file_descriptors); e = list_next(e)) {
+		 e != list_end(&thread_current()->mmap_list); e = list_next(e)) {
 		struct mmap *ret = list_entry(e, struct mmap, mmap_elem);
 		if (ret->id == id) return ret;
 	}
 	return NULL;
 }
 
-static mapid_t s_mmap(int fd, void *addr) {
+mapid_t s_mmap(int fd, void *addr) {
 	struct file_descriptor *file_descriptor = get_file_descriptor(fd);
 	if (fd <= 1 || file_descriptor == NULL) return -1;
 	if (pg_ofs(upage) != 0) return -1;
@@ -331,11 +326,11 @@ static mapid_t s_mmap(int fd, void *addr) {
 	}
 
 	struct mmap *cur_mmap = (struct mmap *) malloc(sizeof(struct mmap));
+	cur_mmap->id = 1;
 	if (!list_empty(&cur_thread->mmap_list)) {
 		cur_mmap->id = (list_entry(list_back(&cur_thread->mmap_list), struct mmap, mmap_elem))->id + 1;
-	} else {
-		cur_mmap->id = 1;
 	}
+
 	cur_mmap->vPage = addr;
 	cur_mmap->file = file;
 	cur_mmap->size = size;
