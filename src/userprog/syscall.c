@@ -18,9 +18,10 @@
 
 static void syscall_handler(struct intr_frame *);
 void s_exit(int);
-#ifdef
-static int s_mmap(int, void *);
-void s_munmap(int);
+
+#ifdef VM
+static mapid_t s_mmap(mapid_t, void *);
+void s_munmap(mapid_t);
 #endif
 
 static struct lock filesys_lock;
@@ -290,14 +291,23 @@ syscall_handler(struct intr_frame *f UNUSED) {
 #ifdef VM
 static file_descriptor *get_file_descriptor(int fd) {
 	for (struct list_elem *e = list_begin(&thread_current()->file_descriptors);
-			e != list_end(&thread_current()->file_descriptors); e = list_next(e)) {
+		 e != list_end(&thread_current()->file_descriptors); e = list_next(e)) {
 		struct file_descriptor *ret = list_entry(e, struct file_descriptor, elem);
 		if (ret->fdn == fd) return ret;
 	}
 	return NULL;
 }
 
-static int s_mmap (int fd, void *addr) {
+static mmap *get_mmap(mapid_t id) {
+	for (struct list_elem *e = list_begin(&thread_current()->mmap_list);
+		 e != list_end(&thread_current()->file_descriptors); e = list_next(e)) {
+		struct mmap *ret = list_entry(e, struct mmap, mmap_elem);
+		if (ret->id == id) return ret;
+	}
+	return NULL;
+}
+
+static mapid_t s_mmap(int fd, void *addr) {
 	struct file_descriptor *file_descriptor = get_file_descriptor(fd);
 	if (fd <= 1 || file_descriptor == NULL) return -1;
 	if (pg_ofs(upage) != 0) return -1;
@@ -310,15 +320,48 @@ static int s_mmap (int fd, void *addr) {
 		lock_release(&filesys_lock);
 		return -1;
 	}
-	
+
+	struct thread *cur_thread = thread_current();
+
 	//Map every page
 	for (size_t offset = 0; offset < size; offset += PGSIZE) {
-		uint32_t read_bytes = offset + PGSIZE < size ? offset + PGSIZE : PGSIZE;
+		uint32_t read_bytes = offset + PGSIZE < size ? PGSIZE : (size - offset);
 		uint32_t zero_bytes = PGSIZE - read_bytes;
+		sup_page_table_set_file(cur_thread->sup_page_table, addr + offset, file, offset, read_bytes, zero_bytes);
 	}
+
+	struct mmap *cur_mmap = (struct mmap *) malloc(sizeof(struct mmap));
+	if (!list_empty(&cur_thread->mmap_list)) {
+		cur_mmap->id = (list_entry(list_back(&cur_thread->mmap_list), struct mmap, mmap_elem))->id + 1;
+	} else {
+		cur_mmap->id = 1;
+	}
+	cur_mmap->vPage = addr;
+	cur_mmap->file = file;
+	cur_mmap->size = size;
+	list_push_back(&cur_thread->mmap_list, cur_mmap);
+
+	lock_release(&filesys_lock);
+	return cur_mmap->id;
 }
 
-void s_munmap (int mapid){
+void s_munmap(mapid_t mapid) {
+	struct mmap *cur_mmap = get_mmap(mapid);
+	struct thread *cur_thread = thread_current();
+	if (cur_mmap == NULL) return;
 
+	lock_acquire(&filesys_lock);
+
+	for (size_t offset = 0; offset < cur_mmap->size; offset += PGSIZE) {
+		uint32_t read_bytes = offset + PGSIZE < cur_mmap->size ? PGSIZE : (cur_mmap->size - offset);
+		sup_page_table_unmap(cur_thread->sup_page_table, cur_mmap->vPage + offset, cur_thread->pagedir,
+					   cur_mmap->file, offset, read_bytes);
+	}
+	file_close(cur_mmap->file);
+	list_remove(cur_mmap);
+	free(cur_mmap);
+
+	lock_release(&filesys_lock);
+	return;
 }
 #endif

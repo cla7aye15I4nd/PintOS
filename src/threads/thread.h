@@ -105,7 +105,8 @@ struct thread
 #ifdef VM
 	struct sup_page_table *sup_page_table;
 	void *esp;
-	//TODO: MMap
+
+	struct list mmap_list;
 #endif
 
    int64_t block_ticks;                 /* Ticks thread needs to be blocked */

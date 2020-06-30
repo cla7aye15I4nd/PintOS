@@ -79,7 +79,7 @@ bool sup_page_table_set_swap(struct sup_page_table *sup_page_table, void *vPage,
 }
 
 bool sup_page_table_set_file(struct sup_page_table *sup_page_table, void *vPage, struct file *file, off_t offset,
-							 uint32_t read_bytes, uint32_t zero_bytes) {
+							 uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
 	if (sup_page_table_find(sup_page_table, vPage) != NULL) return false;
 	struct sup_page_table_entry *newEntry = (struct sup_page_table_entry *) malloc(
 			sizeof(struct sup_page_table_entry));
@@ -92,7 +92,7 @@ bool sup_page_table_set_file(struct sup_page_table *sup_page_table, void *vPage,
 	newEntry->file = file;
 	newEntry->read_bytes = read_bytes;
 	newEntry->zero_bytes = zero_bytes;
-
+	newEntry->writable = writable;
 	hash_insert(&sup_page_table->hashTable, &newEntry->hashElem);
 	return true;
 }
