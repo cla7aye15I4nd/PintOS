@@ -147,8 +147,9 @@ page_fault(struct intr_frame *f) {
 
 #ifdef VM
 	//Handle Page Fault
-	void *esp = user ? f->esp : thread_current()->esp;
-	if (not_present && page_fault_handler()) {
+	struct thread *cur_thread = thread_current();
+	void *esp = user ? f->esp : cur_thread->esp;
+	if (not_present && page_fault_handler(cur_thread->sup_page_table, cur_thread->pagedir, fault_addr, write,esp)) {
 		return;
 	}
 #endif

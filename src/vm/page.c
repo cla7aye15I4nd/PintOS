@@ -152,7 +152,7 @@ bool load_from_file(struct sup_page_table_entry *entry, void *frame) {
 bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *page) {
 	struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, page);
 	if (entry == NULL) return false;
-	if (entry->status == FRAME) return true;
+	if (entry->status == FRAME && entry->phyPage != null) return true;
 
 	//Obtain a frame
 	void *frame = frame_get(PAL_USER, page);
@@ -168,6 +168,8 @@ bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_d
 			success = load_from_file(entry, frame);
 			break;
 		default:
+			//Initializing the stack
+			memset(frame, 0, PGSIZE);
 			break;
 	}
 	bool writable = entry->writable;
@@ -186,15 +188,28 @@ bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_d
 	return true;
 }
 
+static bool on_stack(void *esp, void *addr) {
+	return (addr >= esp - 32) && (addr >= PHYS_BASE - STACK_MAX) && (addr < PHYS_BASE);
+}
+
+static void sup_page_table_init_stack_page(struct sup_page_table *sup_page_table, void *vPage) {
+	struct sup_page_table_entry *newEntry = (struct sup_page_table_entry *) malloc(
+			sizeof(struct sup_page_table_entry));
+	newEntry->vPage = vPage;
+	newEntry->phyPage = NULL;
+	newEntry->status = FRAME;
+	hash_insert(&sup_page_table->hashTable, &newEntry->hashElem);
+}
+
 bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *fault_addr, bool isWrite,
 						void *esp) {
 	//Invalid Access
 	if (!is_user_vaddr(fault_addr)) return false;
 
 	void *fault_page = pg_round_down(fault_addr);
-//	if (on_stack(esp, fault_addr)) {
-//		//TODO: Stack Growth
-//	}
+	if (on_stack(esp, fault_addr)) {
+		sup_page_table_init_stack_page(sup_page_table);
+	}
 	return sup_page_table_load(sup_page_table, page_dir, fault_page);
 }
 

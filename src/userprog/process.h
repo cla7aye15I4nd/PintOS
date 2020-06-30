@@ -32,4 +32,6 @@ struct mmap {
 	struct list_elem mmap_elem;
 };
 
+#define STACK_MAX 0x800000
+
 #endif /* userprog/process.h */
