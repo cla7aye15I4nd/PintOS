@@ -132,7 +132,7 @@ void frame_remove_entry(void *frame) {
     lock_release(&global_lock);
 }
 
-static void frame_free_op(void *frame, bool real) {
+void frame_free_op(void *frame, bool real) {
     struct frame_entry tmp;
     tmp.frame = frame;
     struct hash_elem *hash = hash_find(&frame_table, &tmp.hash_elem);

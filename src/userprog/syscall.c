@@ -27,8 +27,8 @@ check_address(const void *addr) {
     // printf ("checking address %x\n", addr);
     struct thread *cur_thread = thread_current();
     if (!((addr) && is_user_vaddr(addr) &&
-          (sup_page_table_find(cur_thread->sup_page_table, pg_round_down(addr)) != NULL ||
-                  (sup_page_table_on_stack(cur_thread->esp, addr) && page_fault_handler(cur_thread->sup_page_table, cur_thread->pagedir, addr, true, cur_thread->esp))))) {
+          (sup_page_table_find_locked(cur_thread->sup_page_table, pg_round_down(addr)) != NULL ||
+                  (sup_page_table_on_stack(cur_thread->esp, addr)) && page_fault_handler(cur_thread->sup_page_table, cur_thread->pagedir, addr, true, cur_thread->esp)))) {
 //        printf("putain a la %x!\n", addr);
         s_exit(-1);
         return;

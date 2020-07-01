@@ -46,36 +46,42 @@ struct sup_page_table *sup_page_table_create() {
 }
 
 void sup_page_table_destroy(struct sup_page_table *sup_page_table) {
-//    lock_acquire(&page_lock);
+    lock_acquire(&page_lock);
     hash_destroy(&sup_page_table->hashTable, sup_page_table_entry_destroy);
     free(sup_page_table);
-//    lock_release(&page_lock);
+    lock_release(&page_lock);
 }
 
 struct sup_page_table_entry *sup_page_table_find(struct sup_page_table *sup_page_table, void *vPage) {
-    //lock_acquire(&page_lock);
     struct sup_page_table_entry tmp;
     tmp.vPage = vPage;
     struct hash_elem *ret = hash_find(&sup_page_table->hashTable, &tmp.hashElem);
 
     if (ret != NULL) {
-        //lock_release(&page_lock);
         return hash_entry(ret, struct sup_page_table_entry, hashElem);
     } else {
-        //lock_release(&page_lock);
         return NULL;
     }
 }
 
+struct sup_page_table_entry *sup_page_table_find_locked(struct sup_page_table *sup_page_table, void *vPage) {
+    lock_acquire(&page_lock);
+    struct sup_page_table_entry *ret = sup_page_table_find(sup_page_table, vPage);
+    lock_release(&page_lock);
+    return ret;
+}
+
 bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writable) {
 //    printf("Set frame %p %p\n", vPage, &sup_page_table->hashTable);
+    lock_acquire(&page_lock);
 
-    if (sup_page_table_find(sup_page_table, vPage) != NULL) return false;
-
+    if (sup_page_table_find(sup_page_table, vPage) != NULL) {
+        lock_release(&page_lock);
+        return false;
+    }
     struct sup_page_table_entry *newEntry = (struct sup_page_table_entry *) malloc(
             sizeof(struct sup_page_table_entry));
 
-    //lock_acquire(&page_lock);
     newEntry->vPage = vPage;
     newEntry->phyPage = phyPage;
     newEntry->status = FRAME;
@@ -83,34 +89,38 @@ bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage
     newEntry->dirty = false;
     hash_insert(&sup_page_table->hashTable, &newEntry->hashElem);
 
-    //lock_release(&page_lock);
+    lock_release(&page_lock);
     return true;
 }
 
 bool sup_page_table_set_swap(struct sup_page_table *sup_page_table, void *vPage, uint32_t swap_index) {
 //    printf("Set swap %p %p %d\n", vPage, &sup_page_table->hashTable, swap_index);
+//    lock_acquire(&page_lock);
     struct sup_page_table_entry *cur = sup_page_table_find(sup_page_table, vPage);
     if (cur == NULL) {
+//        lock_release(&page_lock);
         return false;
     }
 
-    //lock_acquire(&page_lock);
     cur->status = SWAP;
     cur->phyPage = NULL;
     cur->swap_index = swap_index;
 
-    //lock_release(&page_lock);
+//    lock_release(&page_lock);
     return true;
 }
 
 bool sup_page_table_set_file(struct sup_page_table *sup_page_table, void *vPage, struct file *file, off_t offset,
                              uint32_t read_bytes, uint32_t zero_bytes, bool writable) {
 //    printf("Set file %p %p %d\n", vPage, &sup_page_table->hashTable, read_bytes);
-    if (sup_page_table_find(sup_page_table, vPage) != NULL) return false;
+    lock_acquire(&page_lock);
+    if (sup_page_table_find(sup_page_table, vPage) != NULL) {
+        lock_release(&page_lock);
+        return false;
+    }
 //    printf("load file: %p%p\n",file, vPage);
     struct sup_page_table_entry *newEntry = (struct sup_page_table_entry *) malloc(
             sizeof(struct sup_page_table_entry));
-    //lock_acquire(&page_lock);
 
     newEntry->vPage = vPage;
     newEntry->phyPage = NULL;
@@ -123,17 +133,17 @@ bool sup_page_table_set_file(struct sup_page_table *sup_page_table, void *vPage,
     newEntry->writable = writable;
 
     hash_insert(&sup_page_table->hashTable, &newEntry->hashElem);
-    //lock_release(&page_lock);
+    lock_release(&page_lock);
 
     return true;
 }
 
 bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage, uint32_t *page_dir, struct file *file,
                           off_t offset, size_t bytes) {
+    lock_acquire(&page_lock);
     struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, vPage);
     if (entry == NULL) PANIC("Can't unmap an non-existent page");
 
-    //lock_acquire(&page_lock);
     //Pin if necessary
     if (entry->status == FRAME) {
         frame_pin(entry->phyPage);
@@ -147,21 +157,16 @@ bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage, ui
             dirty |= pagedir_is_dirty(page_dir, entry->phyPage);
 //            printf("Dirty %d %d %d\n",entry->dirty, pagedir_is_dirty(page_dir, entry->vPage),pagedir_is_dirty(page_dir, entry->phyPage));
 //            printf("Dirty %p\n", entry->phyPage);
-            lock_acquire(&filesys_lock);
-
             if (dirty) {
                 file_write_at(file, entry->vPage, bytes, offset);
             }
             frame_free(entry->phyPage);
             pagedir_clear_page(page_dir, entry->vPage);
 
-            lock_release(&filesys_lock);
             break;
         case SWAP:
             dirty = entry->dirty;
             dirty |= pagedir_is_dirty(page_dir, entry->vPage);
-            lock_acquire(&filesys_lock);
-
             if (dirty) {
                 void *tmp = palloc_get_page(0);
                 swap_in(entry->swap_index, tmp);
@@ -169,15 +174,13 @@ bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage, ui
                 palloc_free_page(tmp);
             }
             swap_free(entry->swap_index);
-
-            lock_release(&filesys_lock);
             break;
         case FILE:
             break;
     }
 
     hash_delete(&sup_page_table->hashTable, &entry->hashElem);
-    //lock_release(&page_lock);
+    lock_release(&page_lock);
 
     return true;
 }
@@ -188,12 +191,8 @@ bool load_from_swap(struct sup_page_table_entry *entry, void *frame) {
 }
 
 bool load_from_file(struct sup_page_table_entry *entry, void *frame) {
-    lock_acquire(&filesys_lock);
-
     int read = file_read_at(entry->file, frame, entry->read_bytes, entry->offset);
     memset(frame + read, 0, entry->zero_bytes);
-
-    lock_release(&filesys_lock);
     return true;
 }
 
@@ -228,15 +227,14 @@ bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_d
     //Add entry to page directory
     if ((!success) || !pagedir_set_page(page_dir, page, frame, writable)) {
         frame_free(frame);
+        lock_release(&page_lock);
         return false;
     }
 
-    //lock_acquire(&page_lock);
     //Add entry to sup page table
     entry->status = FRAME;
     entry->phyPage = frame;
     pagedir_set_dirty(page_dir, frame, false);
-    //lock_release(&page_lock);
 
     frame_release_pinned(frame);
     return true;
@@ -250,20 +248,21 @@ bool sup_page_table_on_stack(void *esp, void *addr) {
 static void sup_page_table_init_stack_page(struct sup_page_table *sup_page_table, void *vPage) {
     struct sup_page_table_entry *newEntry = (struct sup_page_table_entry *) malloc(
             sizeof(struct sup_page_table_entry));
-    //lock_acquire(&page_lock);
     newEntry->vPage = vPage;
     newEntry->phyPage = NULL;
     newEntry->status = FRAME;
     newEntry->writable = true;
     hash_insert(&sup_page_table->hashTable, &newEntry->hashElem);
-    //lock_release(&page_lock);
 }
 
 bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_dir, void *fault_addr, bool isWrite,
                         void *esp) {
     //Invalid Access
-    if (!is_user_vaddr(fault_addr)) return false;
+    if (!is_user_vaddr(fault_addr)) {
+        return false;
+    }
 
+    lock_acquire(&page_lock);
     void *fault_page = pg_round_down(fault_addr);
     if (sup_page_table_on_stack(esp, fault_addr)) {
 //        printf("YEAH STACK %p %p\n", fault_addr, fault_page);
@@ -272,14 +271,17 @@ bool page_fault_handler(struct sup_page_table *sup_page_table, uint32_t *page_di
 //    printf("PAGE FAULT HANDLER: %p %p\n", page_dir, fault_page);
     bool ret = sup_page_table_load(sup_page_table, page_dir, fault_page);
 //    printf(ret ? "PAGE FAULT HANDLED\n" : "PAGE FAULT REMAINS\n");
+
+    lock_release(&page_lock);
     return ret;
 }
 
 void sup_page_set_dirty(struct sup_page_table *sup_page_table, void *vPage, bool dirty) {
+//    lock_acquire(&page_lock);
+
     struct sup_page_table_entry *entry = sup_page_table_find(sup_page_table, vPage);
     if (entry == NULL) PANIC("Page doesn't exist");
 
-    //lock_acquire(&page_lock);
     entry->dirty |= dirty;
-    //lock_release(&page_lock);
+//    lock_release(&page_lock);
 }
