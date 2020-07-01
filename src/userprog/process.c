@@ -199,31 +199,32 @@ process_exit(void) {
 #ifdef VM
 	//Unmap everything
 	while (!list_empty(&thread_current()->mmap_list)){
-		struct list_elem *e = list_begin(&thread_current()->mmap_list)
+		struct list_elem *e = list_begin(&thread_current()->mmap_list);
 		struct mmap *ret = list_entry(e, struct mmap, mmap_elem);
 		s_munmap(ret->id);
 	}
+
 #endif
 
 	/* Destroy the current process's page directory and switch back
 	   to the kernel-only page directory. */
 	pd = cur->pagedir;
 	if (pd != NULL) {
-		/* Correct ordering here is crucial.  We must set
-		   cur->pagedir to NULL before switching page directories,
-		   so that a timer interrupt can't switch back to the
-		   process page directory.  We must activate the base page
-		   directory before destroying the process's page
-		   directory, or our active page directory will be one
-		   that's been freed (and cleared). */
+        /* Correct ordering here is crucial.  We must set
+           cur->pagedir to NULL before switching page directories,
+           so that a timer interrupt can't switch back to the
+           process page directory.  We must activate the base page
+           directory before destroying the process's page
+           directory, or our active page directory will be one
+           that's been freed (and cleared). */
 		cur->pagedir = NULL;
 		pagedir_activate(NULL);
-		pagedir_destroy(pd);
-	}
+        pagedir_destroy(pd);
+    }
 
 #ifdef VM
 	sup_page_table_destroy(thread_current()->sup_page_table);
-	sup_page_table = NULL;
+	thread_current()->sup_page_table = NULL;
 #endif
 }
 
@@ -380,15 +381,15 @@ load(const char *file_name, void (**eip)(void), void **esp) {
 			case PT_SHLIB:
 				goto done;
 			case PT_LOAD:
-				if (validate_segment(&phdr, file)) {
+                if (validate_segment(&phdr, file)) {
 					bool writable = (phdr.p_flags & PF_W) != 0;
 					uint32_t file_page = phdr.p_offset & ~PGMASK;
 					uint32_t mem_page = phdr.p_vaddr & ~PGMASK;
 					uint32_t page_offset = phdr.p_vaddr & PGMASK;
 					uint32_t read_bytes, zero_bytes;
-					if (phdr.p_filesz > 0) {
-						/* Normal segment.
-						   Read initial part from disk and zero the rest. */
+                    if (phdr.p_filesz > 0) {
+                        /* Normal segment.
+                           Read initial part from disk and zero the rest. */
 						read_bytes = page_offset + phdr.p_filesz;
 						zero_bytes = (ROUND_UP(page_offset + phdr.p_memsz, PGSIZE)
 									  - read_bytes);
@@ -398,7 +399,7 @@ load(const char *file_name, void (**eip)(void), void **esp) {
 						read_bytes = 0;
 						zero_bytes = ROUND_UP(page_offset + phdr.p_memsz, PGSIZE);
 					}
-					if (!load_segment(file, file_page, (void *) mem_page,
+                    if (!load_segment(file, file_page, (void *) mem_page,
 									  read_bytes, zero_bytes, writable))
 						goto done;
 				} else
@@ -501,9 +502,8 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 
 #ifdef VM
 		sup_page_table_set_file(thread_current()->sup_page_table, upage, file, ofs,
-						  page_read_bytes, page_zero_bytes, writeable);
-#endif
-
+						  page_read_bytes, page_zero_bytes, writable);
+#else
 		/* Get a page of memory. */
 		uint8_t *kpage = frame_get(PAL_USER, upage);
 		if (kpage == NULL)
@@ -521,7 +521,7 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 			frame_free(kpage);
 			return false;
 		}
-
+#endif
 		/* Advance. */
 		read_bytes -= page_read_bytes;
 		zero_bytes -= page_zero_bytes;
@@ -538,6 +538,7 @@ setup_stack(void **esp) {
 	uint8_t *kpage;
 	bool success = false;
 
+//	printf("Set up stack\n");
 	kpage = frame_get(PAL_USER | PAL_ZERO, PHYS_BASE - PGSIZE);
 	if (kpage != NULL) {
 		success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
@@ -568,7 +569,7 @@ install_page(void *upage, void *kpage, bool writable) {
 			   && pagedir_set_page(t->pagedir, upage, kpage, writable);
 
 #ifdef VM
-	ret &= sup_page_table_set_frame(t->sup_page_table, upage, kpage, writable);
+	ret = ret && sup_page_table_set_frame(t->sup_page_table, upage, kpage, writable);
 	if (ret) frame_release_pinned(kpage);
 #endif
 	return ret;

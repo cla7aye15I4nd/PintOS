@@ -343,13 +343,12 @@ thread_exit (void)
 #ifdef USERPROG
   process_exit ();
 #endif
-
   lock_acquire (&exit_lock);
   struct list *children = &thread_current ()->children;
   for (struct list_elem *e = list_begin(children); e != list_end(children); e = list_next(e))
     sema_up (&list_entry(e, struct thread, children_list_elem)->exit_sema);
 
-  #ifdef USERPROG
+#ifdef USERPROG
     while (!list_empty (&thread_current ()->files)) {
       struct file_descriptor *fd = list_entry (list_pop_front (&thread_current ()->files), struct file_descriptor, fd_elem);
       close_f (fd->file);

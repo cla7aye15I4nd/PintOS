@@ -33,6 +33,8 @@ struct sup_page_table {
 	struct hash hashTable;
 };
 
+extern struct lock filesys_lock;
+
 //Helper Methods
 unsigned sup_page_table_entry_hash(const struct hash_elem *e, void *aux);
 bool sup_page_table_entry_less(const struct hash_elem *a, const struct hash_elem *b, void *aux);
@@ -44,6 +46,7 @@ void sup_page_table_destroy(struct sup_page_table *sup_page_table);
 
 //Basic methods of a table
 struct sup_page_table_entry *sup_page_table_find(struct sup_page_table *sup_page_table, void *vPage);
+bool sup_page_table_on_stack(void *addr, void *esp);
 bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writeable);
 bool sup_page_table_set_swap(struct sup_page_table *sup_page_table, void *vPage, uint32_t swap_index);
 bool sup_page_table_set_file(struct sup_page_table *sup_page_table, void *vPage, struct file *file, off_t offset,

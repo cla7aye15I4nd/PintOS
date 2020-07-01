@@ -7,9 +7,9 @@ void syscall_init (void);
 void s_exit (int);
 void close_f (struct file *);
 
-#ifdef VM
+//#ifdef VM
 mapid_t s_mmap(mapid_t, void *);
 void s_munmap(mapid_t);
-#endif
+//#endif
 
 #endif /* userprog/syscall.h */

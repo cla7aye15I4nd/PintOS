@@ -147,7 +147,7 @@ pintos_init (void)
 #endif
 
 #ifdef VM
-  swap_init();
+    swap_table_init();
 #endif
 
   printf("init_page_dir[pd_no(ptov(0))] %X\n", init_page_dir[pd_no(ptov(0))]);

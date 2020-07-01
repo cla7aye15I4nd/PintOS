@@ -145,13 +145,26 @@ page_fault(struct intr_frame *f) {
 	write = (f->error_code & PF_W) != 0;
 	user = (f->error_code & PF_U) != 0;
 
+//    printf("Page fault at %p: %s error %s page in %s context.\n",
+//           fault_addr,
+//           not_present ? "not present" : "rights violation",
+//           write ? "writing" : "reading",
+//           user ? "user" : "kernel");
+
 #ifdef VM
 	//Handle Page Fault
 	struct thread *cur_thread = thread_current();
 	void *esp = user ? f->esp : cur_thread->esp;
-	if (not_present && page_fault_handler(cur_thread->sup_page_table, cur_thread->pagedir, fault_addr, write,esp)) {
-		return;
-	}
+
+//	if (user) printf("USER PAGE FAULT: %p\n", esp);
+//	else printf("KERNEL PAGE FAULT: %p\n", esp);
+
+	if (not_present) {
+	    if (page_fault_handler(cur_thread->sup_page_table, cur_thread->pagedir, fault_addr, write,esp)) {
+//            printf("Fixed\n");
+            return;
+	    }
+    }
 #endif
 
 	s_exit(-1);
@@ -164,6 +177,7 @@ page_fault(struct intr_frame *f) {
 		   not_present ? "not present" : "rights violation",
 		   write ? "writing" : "reading",
 		   user ? "user" : "kernel");
+
 	kill(f);
 }
 

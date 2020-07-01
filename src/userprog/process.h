@@ -4,6 +4,7 @@
 #include "threads/thread.h"
 #include "threads/synch.h"
 #include "filesys/file.h"
+#include "../lib/user/syscall.h"
 
 tid_t process_execute(const char *file_name);
 int process_wait(tid_t);

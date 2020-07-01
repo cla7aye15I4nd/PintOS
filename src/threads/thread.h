@@ -105,7 +105,6 @@ struct thread
 #ifdef VM
 	struct sup_page_table *sup_page_table;
 	void *esp;
-
 	struct list mmap_list;
 #endif
 
