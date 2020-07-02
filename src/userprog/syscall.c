@@ -1,9 +1,9 @@
-#include "../userprog/syscall.h"
+#include "userprog/syscall.h"
 #include <stdio.h>
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
-#include "../threads/vaddr.h"
+#include "threads/vaddr.h"
 #include "userprog/pagedir.h"
 #include "devices/shutdown.h"
 #include "threads/synch.h"
@@ -108,6 +108,7 @@ void
 s_exit(int status) {
     thread_current()->exit_status = status;
     printf("%s: exit(%d)\n", thread_current()->name, status);
+    //Correct???
     if (lock_held_by_current_thread(&filesys_lock))
         lock_release(&filesys_lock);
     thread_exit();
@@ -233,19 +234,22 @@ s_write(int fdn, const void *buf, unsigned size) {
     for (int i = 0; i < size; i++)
         check_address(buf + i);
 
-    if (fdn == 1) {
-        putbuf((const char *) buf, size);
-        return size;
-    }
-    struct file_descriptor *fd = find_fd(fdn);
-    if (fd == NULL)
-        return -1;
+  if (fdn == 1)
+  {
+    putbuf ((const char *)buf, size);
+    return size;
+  }
+  struct file_descriptor * fd = find_fd (fdn);
+  if (fd == NULL)
+    return -1;
+  
+  lock_acquire (&filesys_lock);
+  int status = file_write (fd->file, buf, size);
+  lock_release (&filesys_lock);
+  
+  // printf("************** syscall write complete size %d status %d\n", size, status);
 
-    lock_acquire(&filesys_lock);
-    int status = file_write(fd->file, buf, size);
-    lock_release(&filesys_lock);
-
-    return status;
+  return status;
 }
 
 static void
@@ -278,9 +282,9 @@ s_close(int fdn) {
     if (fd == NULL)
         s_exit(-1);
 
-    close_f(fd->file);
-    list_remove(&fd->fd_elem);
-    free(fd);
+  close_f (fd->file);
+  list_remove (&fd->fd_elem);
+  free (fd);
 }
 
 static void
