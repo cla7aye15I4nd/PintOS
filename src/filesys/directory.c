@@ -84,6 +84,11 @@ dir_open_path (const char* path)
 
   free (copy_path);
 
+  if (inode_removed (dir_get_inode(current_dir))) {
+    dir_close(current_dir);
+    return NULL;
+  }
+
   return current_dir;
 }
 
@@ -154,7 +159,12 @@ dir_lookup (const struct dir *dir, const char *name,
   ASSERT (dir != NULL);
   ASSERT (name != NULL);
 
-  if (lookup (dir, name, &e, NULL))
+  if (strcmp (name, ".") == 0) {
+    *inode = inode_reopen (dir->inode);
+  } else if (strcmp (name, "..") == 0) {
+    inode_read_at (dir->inode, &e, sizeof e, 0);
+    *inode = inode_open (e.inode_sector);
+  } else if (lookup (dir, name, &e, NULL))
     *inode = inode_open (e.inode_sector);
   else
     *inode = NULL;
@@ -248,6 +258,17 @@ dir_remove (struct dir *dir, const char *name)
     goto done;
 
   /* Erase directory entry. */
+
+  if (inode_is_dir (inode)) {
+    struct dir* rmdir = dir_open (inode);
+    
+    if (!dir_empty (rmdir)) {
+      dir_close (rmdir);
+      goto done;
+    }
+    dir_close (rmdir);
+  }
+
   e.in_use = false;
   if (inode_write_at (dir->inode, &e, sizeof e, ofs) != sizeof e) 
     goto done;
@@ -259,6 +280,19 @@ dir_remove (struct dir *dir, const char *name)
  done:
   inode_close (inode);
   return success;
+}
+
+bool
+dir_empty (struct dir* dir) 
+{
+  struct dir_entry e;
+
+  while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) {
+    dir->pos += sizeof e;
+    if (e.in_use)
+      return false;
+  }
+  return true;
 }
 
 /* Reads the next directory entry in DIR and stores the name in

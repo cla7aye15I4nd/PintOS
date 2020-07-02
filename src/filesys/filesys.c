@@ -130,8 +130,14 @@ filesys_chdir (const char* name)
 bool
 filesys_remove (const char *name) 
 {
-  struct dir *dir = dir_open_root ();
-  bool success = dir != NULL && dir_remove (dir, name);
+  char *path;
+  char *filename;
+
+  split(name, &path, &filename);
+
+  struct dir *dir = dir_open_path (path);
+  
+  bool success = dir != NULL && dir_remove (dir, filename);
   dir_close (dir); 
 
   return success;

@@ -166,6 +166,12 @@ inode_get_sector (const struct inode* inode)
   return inode->sector;
 }
 
+bool
+inode_removed (const struct inode* inode)
+{
+  return inode->removed;
+}
+
 /* Closes INODE and writes it to disk.
    If this was the last reference to INODE, frees its memory.
    If INODE was also a removed inode, frees its blocks. */

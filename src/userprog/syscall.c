@@ -265,7 +265,7 @@ s_mkdir (const char *dir)
 
   bool retval;
   lock_acquire (&filesys_lock); 
-  retval = filesys_create (dir, 0, true);
+  retval = filesys_create (dir, 100, true);
   lock_release (&filesys_lock);
 
   return retval;
