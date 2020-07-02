@@ -153,9 +153,15 @@ inode_reopen (struct inode *inode)
   return inode;
 }
 
+bool 
+inode_is_dir (const struct inode* inode) 
+{
+  return inode->data.isdir;
+}
+
 /* Returns INODE's inode number. */
-block_sector_t
-inode_get_inumber (const struct inode *inode)
+int
+inode_get_sector (const struct inode* inode) 
 {
   return inode->sector;
 }

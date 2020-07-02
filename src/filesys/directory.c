@@ -46,8 +46,13 @@ dir_open_root (void)
 struct dir *
 dir_open_path (const char* path) 
 {
+  int path_length = strlen(path) + 1;
+  char *copy_path = malloc (path_length);
+  strlcpy (copy_path, path, path_length);
+  
+
   struct dir* current_dir;
-  const char* pos = path;
+  char* pos = copy_path;
     
   if (*pos == '/') {
     pos ++;
@@ -76,6 +81,8 @@ dir_open_path (const char* path)
 
     name = strtok_r(NULL, "/", &context);
   }
+
+  free (copy_path);
 
   return current_dir;
 }
@@ -180,6 +187,17 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is
     goto done;
 
   // printf ("add %p %s\n", dir, name);
+  if (isdir) {
+    struct dir *new_dir = dir_open(inode_open(inode_sector));
+    if (new_dir == NULL) goto done;
+    
+    e.inode_sector = inode_get_sector (dir_get_inode(dir));
+    if (inode_write_at(new_dir->inode, &e, sizeof e, 0) != sizeof e) {
+      dir_close (new_dir);
+      goto done;
+    }
+    dir_close (new_dir);
+  }
 
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the

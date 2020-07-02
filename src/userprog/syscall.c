@@ -278,15 +278,27 @@ s_readdir (int fd, char name[READDIR_MAX_LEN + 1])
 }
 
 static bool
-s_isdir (int fd) 
+s_isdir (int fdn) 
 {
-  return false;
+  lock_acquire (&filesys_lock);
+
+  struct file_descriptor * fd = find_fd (fdn);
+  bool retval = inode_is_dir (file_get_inode(fd->file));
+
+  lock_release (&filesys_lock);
+  return retval;
 }
 
 static int
-s_inumber (int fd) 
+s_inumber (int fdn) 
 {
-  return 0;
+  lock_acquire (&filesys_lock);
+
+  struct file_descriptor * fd = find_fd (fdn);
+  int retval = inode_get_sector (file_get_inode(fd->file));
+
+  lock_release (&filesys_lock);
+  return retval;
 }
 
 static void
