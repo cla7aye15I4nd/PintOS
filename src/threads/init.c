@@ -114,8 +114,6 @@ pintos_init (void)
 #ifdef VM
     /* Initialize Virtual memory system. (Project 3) */
   frame_init();
-#else
-  frame_init();
 #endif
 
   /* Segmentation. */

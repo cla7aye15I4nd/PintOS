@@ -505,20 +505,33 @@ load_segment(struct file *file, off_t ofs, uint8_t *upage,
 						  page_read_bytes, page_zero_bytes, writable);
 #else
 		/* Get a page of memory. */
+#ifdef VM
 		uint8_t *kpage = frame_get(PAL_USER, upage);
-		if (kpage == NULL)
+#else
+        uint8_t *kpage = palloc_get_page(PAL_USER);
+#endif
+
+        if (kpage == NULL)
 			return false;
 
 		/* Load this page. */
 		if (file_read(file, kpage, page_read_bytes) != (int) page_read_bytes) {
-			frame_free(kpage);
+#ifdef VM
+            frame_free(kpage);
+#else
+            palloc_free_page(kpage);
+#endif
 			return false;
 		}
 		memset(kpage + page_read_bytes, 0, page_zero_bytes);
 
 		/* Add the page to the process's address space. */
 		if (!install_page(upage, kpage, writable)) {
-			frame_free(kpage);
+#ifdef VM
+            frame_free(kpage);
+#else
+            palloc_free_page(kpage);
+#endif
 			return false;
 		}
 #endif
@@ -539,13 +552,22 @@ setup_stack(void **esp) {
 	bool success = false;
 
 //	printf("Set up stack\n");
+#ifdef VM
 	kpage = frame_get(PAL_USER | PAL_ZERO, PHYS_BASE - PGSIZE);
+#else
+    kpage = palloc_get_page (PAL_USER | PAL_ZERO);
+#endif
+
 	if (kpage != NULL) {
 		success = install_page(((uint8_t *) PHYS_BASE) - PGSIZE, kpage, true);
 		if (success)
 			*esp = PHYS_BASE;
 		else
-			frame_free(kpage);
+#ifdef VM
+            frame_free(kpage);
+#else
+            palloc_free_page(kpage);
+#endif
 	}
 	return success;
 }

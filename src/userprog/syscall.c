@@ -22,17 +22,44 @@ void s_exit(int);
 
 struct lock filesys_lock;
 
+static int get_user (const uint8_t *uaddr) {
+    if (uaddr >= PHYS_BASE) {
+        return -1;
+    }
+    int result;
+    asm ("movl $1f, %0; movzbl %1, %0; 1:"
+    : "=&a" (result) : "m" (*uaddr));
+    return result;
+}
+
+static bool put_user (uint8_t *udst, uint8_t byte) {
+    if (udst >= PHYS_BASE) {
+        return false;
+    }
+    int error_code;
+    asm ("movl $1f, %0; movb %b2, %1; 1:"
+    : "=&a" (error_code), "=m" (*udst) : "q" (byte));
+    return error_code != -1;
+}
+
 static void
 check_address(const void *addr) {
-    // printf ("checking address %x\n", addr);
     struct thread *cur_thread = thread_current();
+#ifdef VM
     if (!((addr) && is_user_vaddr(addr) &&
           (sup_page_table_find_locked(cur_thread->sup_page_table, pg_round_down(addr)) != NULL ||
-                  (sup_page_table_on_stack(cur_thread->esp, addr)) && page_fault_handler(cur_thread->sup_page_table, cur_thread->pagedir, addr, true, cur_thread->esp)))) {
-//        printf("putain a la %x!\n", addr);
+           (sup_page_table_on_stack(cur_thread->esp, addr) && page_fault_handler(cur_thread->sup_page_table, cur_thread->pagedir, addr, true, cur_thread->esp))))) {
+#else
+    if (!((addr) && is_user_vaddr(addr) && pagedir_get_page (thread_current ()->pagedir, addr))) {
         s_exit(-1);
         return;
     }
+#endif
+
+//        if (get_user(addr) == -1) {
+//        s_exit(-1);
+//        return;
+//    }
 }
 
 static uint32_t
@@ -40,12 +67,29 @@ arg(const void *addr, int num) {
     for (int i = 0; i < 4; ++i)
         check_address(addr + i + (num << 2));
     return *((uint32_t * )(addr) + num);
+
+//    uint32_t ret;
+//    for (int i = 0; i < 4; ++i) {
+//        int value = get_user(addr + i + (num << 2));
+////        printf("arg: %d\n", value);
+//        if (value == -1) {
+//            s_exit(-1);
+//            return;
+//        }
+//        *((char*)(&ret) + i) = value & 0xff;
+//    }
+////    printf("%d\n",ret);
+//    return ret;
 }
 
 static void
 check_string(const char *str) {
     for (char *p = str; p == str || *(p - 1); ++p)
         check_address(p);
+//    if (get_user(str) == -1) {
+//        s_exit(-1);
+//        return;
+//    }
 }
 
 void
@@ -166,8 +210,10 @@ s_read(int fdn, void *buf, unsigned size) {
 //    printf("read\n");
 
     if (fdn == 0) {
-        for (int i = 0; i < size; i++)
+        for (int i = 0; i < size; i++) {
+//            put_user(buf + i, input_getc());
             *((char *) buf + i) = input_getc();
+        }
         return size;
     }
 
@@ -239,8 +285,10 @@ s_close(int fdn) {
 
 static void
 syscall_handler(struct intr_frame *f UNUSED) {
+#ifdef VM
     //Save esp
     thread_current()->esp = f->esp;
+#endif
 
     // get call type enum
     int type = arg(f->esp, 0);
@@ -286,16 +334,18 @@ syscall_handler(struct intr_frame *f UNUSED) {
         case SYS_CLOSE:
             s_close(arg(f->esp, 1));
             break;
+#ifdef VM
         case SYS_MMAP:
             f->eax = s_mmap(arg(f->esp, 1), arg(f->esp, 2));
             break;
         case SYS_MUNMAP:
             s_munmap(arg(f->esp, 1));
             break;
+#endif
     }
 }
 
-//#ifdef VM
+#ifdef VM
 static struct file_descriptor *get_file_descriptor(int fd) {
     for (struct list_elem *e = list_begin(&thread_current()->files);
          e != list_end(&thread_current()->files); e = list_next(e)) {
@@ -316,6 +366,7 @@ static struct mmap *get_mmap(mapid_t id) {
 
 mapid_t s_mmap(int fd, void *addr) {
 //    printf("Mmap %d %p", fd, addr);
+
     struct file_descriptor *file_descriptor = get_file_descriptor(fd);
     if (fd <= 1 || file_descriptor == NULL) return -1;
     if (addr == 0 || pg_ofs(addr) != 0) return -1;
@@ -363,11 +414,12 @@ mapid_t s_mmap(int fd, void *addr) {
 }
 
 void s_munmap(mapid_t mapid) {
+    lock_acquire(&filesys_lock);
+
     struct mmap *cur_mmap = get_mmap(mapid);
     struct thread *cur_thread = thread_current();
     if (cur_mmap == NULL) return;
 
-    lock_acquire(&filesys_lock);
 //    printf("In s_munmap %d %p %d\n", mapid, cur_mmap, cur_mmap->size);
 
     for (size_t offset = 0; offset < cur_mmap->size; offset += PGSIZE) {
@@ -382,4 +434,4 @@ void s_munmap(mapid_t mapid) {
     lock_release(&filesys_lock);
     return;
 }
-//#endif
+#endif
