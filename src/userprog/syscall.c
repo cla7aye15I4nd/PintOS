@@ -61,7 +61,7 @@ s_exit (int status)
   thread_current ()->exit_status = status;
   printf ("%s: exit(%d)\n", thread_current()->name, status);
   thread_exit ();
-  printf ("****************** exit done!\n");
+  // printf ("****************** exit done!\n");
 }
 
 static pid_t 
@@ -202,6 +202,8 @@ s_write (int fdn, const void *buf, unsigned size) {
   int status = file_write (fd->file, buf, size);
   lock_release (&filesys_lock);
   
+  // printf("************** syscall write complete size %d status %d\n", size, status);
+
   return status;
 }
 
