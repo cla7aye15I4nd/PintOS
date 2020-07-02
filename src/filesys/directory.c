@@ -1,32 +1,18 @@
-#include "filesys/directory.h"
 #include <stdio.h>
 #include <string.h>
 #include <list.h>
+#include "filesys/directory.h"
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
-
-/* A directory. */
-struct dir 
-  {
-    struct inode *inode;                /* Backing store. */
-    off_t pos;                          /* Current position. */
-  };
-
-/* A single directory entry. */
-struct dir_entry 
-  {
-    block_sector_t inode_sector;        /* Sector number of header. */
-    char name[NAME_MAX + 1];            /* Null terminated file name. */
-    bool in_use;                        /* In use or free? */
-  };
+#include "threads/thread.h"
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool
 dir_create (block_sector_t sector, size_t entry_cnt)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+  return inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -55,6 +41,43 @@ struct dir *
 dir_open_root (void)
 {
   return dir_open (inode_open (ROOT_DIR_SECTOR));
+}
+
+struct dir *
+dir_open_path (const char* path) 
+{
+  struct dir* current_dir;
+  const char* pos = path;
+    
+  if (*pos == '/') {
+    pos ++;
+    current_dir = dir_open_root();
+  } else {
+    struct thread* t = thread_current();
+    if (t->current_dir == NULL)
+      current_dir = dir_open_root();
+    else
+      current_dir = dir_reopen(t->current_dir);
+  }
+  
+  struct inode *inode;
+  char *name, *context;
+
+  name = strtok_r(pos, "/", &context);
+  while (name != NULL && current_dir != NULL) {
+    if (!dir_lookup (current_dir, name, &inode)) {
+      dir_close(current_dir);
+      return NULL;
+    }
+
+    struct dir* temp = current_dir;    
+    current_dir = dir_open(inode);
+    dir_close (temp);
+
+    name = strtok_r(NULL, "/", &context);
+  }
+
+  return current_dir;
 }
 
 /* Opens and returns a new directory for the same inode as DIR.
@@ -139,7 +162,7 @@ dir_lookup (const struct dir *dir, const char *name,
    Fails if NAME is invalid (i.e. too long) or a disk or memory
    error occurs. */
 bool
-dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
+dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool isdir)
 {
   struct dir_entry e;
   off_t ofs;
@@ -155,6 +178,8 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   /* Check that NAME is not in use. */
   if (lookup (dir, name, NULL, NULL))
     goto done;
+
+  // printf ("add %p %s\n", dir, name);
 
   /* Set OFS to offset of free slot.
      If there are no free slots, then it will be set to the
@@ -172,7 +197,10 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector)
   e.in_use = true;
   strlcpy (e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
-  success = inode_write_at (dir->inode, &e, sizeof e, ofs) == sizeof e;
+
+  off_t offset =  inode_write_at (dir->inode, &e, sizeof e, ofs);
+  success = offset == sizeof e;
+  
 
  done:
   return success;

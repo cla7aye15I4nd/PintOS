@@ -86,7 +86,7 @@ s_create (const char *file, unsigned initial_size)
 {
   check_string (file);
   lock_acquire (&filesys_lock);
-  bool status = filesys_create (file, initial_size);
+  bool status = filesys_create (file, initial_size, false);
   lock_release (&filesys_lock);
   return status;
 }
@@ -243,6 +243,43 @@ s_close (int fdn)
   free (fd);
 }
 
+static bool
+s_chdir (const char *dir)
+{
+  return false;
+}
+
+static bool
+s_mkdir (const char *dir)
+{
+  if (dir[0] == '\0')
+    return false;
+
+  bool retval;
+  lock_acquire (&filesys_lock); 
+  retval = filesys_create (dir, 0, true);
+  lock_release (&filesys_lock);
+
+  return retval;
+}
+
+static bool
+s_readdir (int fd, char name[READDIR_MAX_LEN + 1]) 
+{
+  return false;
+}
+
+static bool
+s_isdir (int fd) 
+{
+  return false;
+}
+
+static int
+s_inumber (int fd) 
+{
+  return 0;
+}
 
 static void
 syscall_handler (struct intr_frame *f UNUSED) 
@@ -265,5 +302,11 @@ syscall_handler (struct intr_frame *f UNUSED)
     case SYS_SEEK:              s_seek    (arg (f->esp, 1), arg (f->esp, 2));                   break;
     case SYS_TELL:    f->eax =  s_tell    (arg (f->esp, 1));                                    break;
     case SYS_CLOSE:             s_close   (arg (f->esp, 1));                                    break;
+    
+    case SYS_CHDIR:   f->eax =  s_chdir   (arg (f->esp, 1));                                    break;
+    case SYS_MKDIR:   f->eax =  s_mkdir   (arg (f->esp, 1));                                    break;
+    case SYS_READDIR: f->eax =  s_readdir (arg (f->esp, 1), arg (f->esp, 2));                   break;
+    case SYS_ISDIR:   f->eax =  s_isdir   (arg (f->esp, 1));                                    break;
+    case SYS_INUMBER: f->eax =  s_inumber (arg (f->esp, 1));                                    break;
   }
 }
