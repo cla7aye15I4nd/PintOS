@@ -8,6 +8,7 @@
 #include "filesys/directory.h"
 #include "filesys/cache.h"
 #include "threads/synch.h"
+#include "threads/thread.h"
 
 /* Partition that contains the file system. */
 struct block *fs_device;
@@ -88,7 +89,7 @@ filesys_open (const char *name)
 
   split(name, &path, &filename);
   struct dir *dir = dir_open_path (path);
-  struct inode *inode = NULL;
+  struct inode *inode = NULL; 
 
   if (dir == NULL)
     return NULL;
@@ -104,6 +105,22 @@ filesys_open (const char *name)
   free (filename);
 
   return file_open (inode);
+}
+
+bool
+filesys_chdir (const char* name)
+{
+  struct dir *dir = dir_open_path (name);
+
+  if (dir == NULL)
+    return false;
+
+  struct thread *t = thread_current ();
+
+  dir_close (t->current_dir);
+  t->current_dir = dir;
+
+  return true;
 }
 
 /* Deletes the file named NAME.

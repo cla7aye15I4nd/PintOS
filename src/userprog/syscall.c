@@ -246,7 +246,15 @@ s_close (int fdn)
 static bool
 s_chdir (const char *dir)
 {
-  return false;
+  if (dir[0] == '\0')
+    return false;
+
+  bool retval;
+  lock_acquire (&filesys_lock); 
+  retval = filesys_chdir (dir);
+  lock_release (&filesys_lock);
+
+  return retval;
 }
 
 static bool
