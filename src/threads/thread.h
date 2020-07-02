@@ -7,6 +7,7 @@
 #include "threads/fixed-point.h"
 #include "threads/synch.h"
 #include "filesys/file.h"
+#include "vm/page.h"
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -99,6 +100,12 @@ struct thread
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
+#endif
+
+#ifdef VM
+	struct sup_page_table *sup_page_table;
+	void *esp;
+	struct list mmap_list;
 #endif
 
    int64_t block_ticks;                 /* Ticks thread needs to be blocked */
