@@ -64,11 +64,13 @@ struct sup_page_table_entry *sup_page_table_find(struct sup_page_table *sup_page
     }
 }
 
-struct sup_page_table_entry *sup_page_table_find_locked(struct sup_page_table *sup_page_table, void *vPage) {
+bool sup_page_table_find_locked(struct sup_page_table *sup_page_table, void *vPage) {
     lock_acquire(&page_lock);
-    struct sup_page_table_entry *ret = sup_page_table_find(sup_page_table, vPage);
+    struct sup_page_table_entry tmp;
+    tmp.vPage = vPage;
+    struct hash_elem *ret = hash_find(&sup_page_table->hashTable, &tmp.hashElem);
     lock_release(&page_lock);
-    return ret;
+    return ret != NULL;
 }
 
 bool sup_page_table_set_frame(struct sup_page_table *sup_page_table, void *vPage, void *phyPage, bool writable) {
@@ -158,7 +160,9 @@ bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage, ui
 //            printf("Dirty %d %d %d\n",entry->dirty, pagedir_is_dirty(page_dir, entry->vPage),pagedir_is_dirty(page_dir, entry->phyPage));
 //            printf("Dirty %p\n", entry->phyPage);
             if (dirty) {
+//                lock_acquire(&filesys_lock);
                 file_write_at(file, entry->vPage, bytes, offset);
+//                lock_release(&filesys_lock);
             }
             frame_free(entry->phyPage);
             pagedir_clear_page(page_dir, entry->vPage);
@@ -170,7 +174,9 @@ bool sup_page_table_unmap(struct sup_page_table *sup_page_table, void *vPage, ui
             if (dirty) {
                 void *tmp = palloc_get_page(0);
                 swap_in(entry->swap_index, tmp);
+                //lock_acquire(&filesys_lock);
                 file_write_at(file, tmp, PGSIZE, offset);
+                //lock_release(&filesys_lock);
                 palloc_free_page(tmp);
             }
             swap_free(entry->swap_index);
@@ -213,7 +219,9 @@ bool sup_page_table_load(struct sup_page_table *sup_page_table, uint32_t *page_d
             success = load_from_swap(entry, frame);
             break;
         case FILE:
+            //lock_acquire(&filesys_lock);
             success = load_from_file(entry, frame);
+            //lock_release(&filesys_lock);
             break;
         case FRAME:
             //Initializing the stack

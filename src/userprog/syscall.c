@@ -47,14 +47,14 @@ check_address(const void *addr) {
     struct thread *cur_thread = thread_current();
 #ifdef VM
     if (!((addr) && is_user_vaddr(addr) &&
-          (sup_page_table_find_locked(cur_thread->sup_page_table, pg_round_down(addr)) != NULL ||
+          (sup_page_table_find_locked(cur_thread->sup_page_table, pg_round_down(addr)) ||
            (sup_page_table_on_stack(cur_thread->esp, addr) && page_fault_handler(cur_thread->sup_page_table, cur_thread->pagedir, addr, true, cur_thread->esp))))) {
 #else
-    if (!((addr) && is_user_vaddr(addr) && pagedir_get_page (thread_current ()->pagedir, addr))) {
+    if (!((addr) && is_user_vaddr(addr) && pagedir_get_page (thread_current()->pagedir, addr))) {
+#endif
         s_exit(-1);
         return;
     }
-#endif
 
 //        if (get_user(addr) == -1) {
 //        s_exit(-1);
