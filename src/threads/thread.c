@@ -497,20 +497,23 @@ thread_update_priority(struct thread *t)
   old_level = intr_disable();
   int max_priiority = t->base_priority;
 
+
+
   if (!list_empty(&t->lock_list)) {
-    struct list *list = &t->lock_list;
-    struct list_elem *min = list_begin (list);
-    if (min != list_end (list)) {
-      struct list_elem *e;
+      struct list_elem *min = list_min (&t->lock_list, lock_list_less_func, NULL);
+      // struct list *list = &t->lock_list;
+      // struct list_elem *min = list_begin (list);
+      // if (min != list_end (list)) {
+      //   struct list_elem *e;
 
-      for (e = list_next (min); e != list_end (list); e = list_next (e))
-        if (lock_list_less_func (e, min, NULL))
-          min = e;
-    }
+      //   for (e = list_next (min); e != list_end (list); e = list_next (e))
+      //     if (lock_list_less_func (e, min, NULL))
+      //       min = e;
+      // }
 
-    int lock_priority = list_entry(min, struct lock, elem)->max_priority;
-    if (max_priiority < lock_priority)
-	    max_priiority = lock_priority;
+      int lock_priority = list_entry(min, struct lock, elem)->max_priority;
+      if (max_priiority < lock_priority)
+          max_priiority = lock_priority;
   }
   t->priority = max_priiority;
 

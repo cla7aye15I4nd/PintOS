@@ -205,8 +205,8 @@ s_filesize(int fdn) {
 
 static int
 s_read(int fdn, void *buf, unsigned size) {
-//    printf("read\n");
-    for (int i = 0; i < size; i++)
+//    printf("read %p %p\n", buf, pg_ofs(buf));
+    for (int i = -pg_ofs(buf); i < pg_ofs(buf) + size; i += PGSIZE)
         check_address(buf + i);
 //    printf("read\n");
 
@@ -230,8 +230,8 @@ s_read(int fdn, void *buf, unsigned size) {
 
 static int
 s_write(int fdn, const void *buf, unsigned size) {
-    // printf ("system write %d %d %s\n", fd, size, (char *) buf);
-    for (int i = 0; i < size; i++)
+//     printf ("system write %d %s\n", size, (char *) buf);
+    for (int i = -pg_ofs(buf); i < pg_ofs(buf) + size; i += PGSIZE)
         check_address(buf + i);
 
   if (fdn == 1)
