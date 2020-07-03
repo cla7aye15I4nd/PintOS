@@ -79,7 +79,8 @@ get_set_sector (struct inode_disk *idisk, int sec, int l, block_sector_t *get_to
 
     if (!idisk->indirect)
       if (set_from) {
-        free_map_allocate (1, &idisk->indirect);
+        if (!free_map_allocate (1, &idisk->indirect))
+          return false;
         cache_write (idisk->indirect, zeros);
         cache_write (sec, idisk);
       } else return false;
@@ -106,7 +107,8 @@ get_set_sector (struct inode_disk *idisk, int sec, int l, block_sector_t *get_to
 
     if (!idisk->doubly_indirect)
       if (set_from) {
-        free_map_allocate (1, &idisk->doubly_indirect);
+        if (!free_map_allocate (1, &idisk->doubly_indirect))
+          return false;
         cache_write (idisk->doubly_indirect, zeros);
         cache_write (sec, idisk);
       } else return false;
@@ -115,7 +117,8 @@ get_set_sector (struct inode_disk *idisk, int sec, int l, block_sector_t *get_to
 
     if (!id1.to[l / INDIRECT_BLOCK_CNT])
       if (set_from) {
-        free_map_allocate (1, &id1.to[l / INDIRECT_BLOCK_CNT]);
+        if (!free_map_allocate (1, &id1.to[l / INDIRECT_BLOCK_CNT]))
+          return false;
         cache_write (id1.to[l / INDIRECT_BLOCK_CNT], zeros);
         cache_write (idisk->doubly_indirect, &id1);
       } else return false;
@@ -349,6 +352,9 @@ inode_read_at (struct inode *inode, void *buffer_, off_t size, off_t offset)
     {
       /* Disk sector to read, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (inode, offset);
+      if (sector_idx < 0)
+        break;
+        
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */

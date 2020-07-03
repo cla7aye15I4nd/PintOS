@@ -127,6 +127,7 @@ static bool
 lookup (const struct dir *dir, const char *name,
         struct dir_entry *ep, off_t *ofsp) 
 {
+  // printf ("*********** lookup %s\n", name);
   struct dir_entry e;
   size_t ofs;
   
@@ -201,8 +202,10 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is
     struct dir *new_dir = dir_open(inode_open(inode_sector));
     if (new_dir == NULL) goto done;
     
-    e.in_use = false;
+    e.in_use = true;
     e.inode_sector = inode_get_sector (dir_get_inode(dir));
+
+    *e.name = '\0';
     if (inode_write_at(new_dir->inode, &e, sizeof e, 0) != sizeof e) {
       dir_close (new_dir);
       goto done;
@@ -291,7 +294,7 @@ dir_empty (struct dir* dir)
   off_t ofs = 0;
   while (inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e) {
     ofs += sizeof e;
-    if (e.in_use)
+    if (e.in_use && *e.name)
       return false;
   }
   return true;
@@ -308,7 +311,7 @@ dir_readdir (struct dir *dir, char name[NAME_MAX + 1])
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) 
     {
       dir->pos += sizeof e;
-      if (e.in_use)
+      if (e.in_use && *e.name)
         {
           strlcpy (name, e.name, NAME_MAX + 1);
           return true;
