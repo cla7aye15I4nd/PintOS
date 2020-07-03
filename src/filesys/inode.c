@@ -173,7 +173,8 @@ bool inode_extend (struct inode_disk *idisk, block_sector_t sec, off_t t_sec)
 
   for (int i = f_sec; i < t_sec; ++i)
   {
-    free_map_allocate (1, &nnode);
+    if (!free_map_allocate (1, &nnode))
+      return false;
     cache_write (nnode, zeros);
     if (!get_set_sector (idisk, sec, i, NULL, &nnode)) 
       return false;
@@ -418,6 +419,11 @@ inode_write_at (struct inode *inode, const void *buffer_, off_t size,
     {
       /* Sector to write, starting byte offset within sector. */
       block_sector_t sector_idx = byte_to_sector (inode, offset);
+      if (sector_idx < 0)
+      {
+        break;
+      }
+
       int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
       /* Bytes left in inode, bytes left in sector, lesser of the two. */
