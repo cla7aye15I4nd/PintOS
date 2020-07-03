@@ -11,7 +11,8 @@
 #include "lib/user/syscall.h"
 #include "filesys/filesys.h"
 #include "filesys/file.h"
-
+#include "filesys/inode.h"
+#include "filesys/directory.h"
 #ifdef VM
 #include "../vm/page.h"
 #endif
@@ -154,6 +155,14 @@ create_fd(struct file *f) {
     struct file_descriptor *fd = malloc(sizeof(struct file_descriptor));
     fd->fdn = (thread_current()->current_fdn++);
     fd->file = f;
+    
+    struct inode* inode = file_get_inode(f);
+    if (inode != NULL && inode_is_dir (inode))
+        fd->dir = dir_open (inode_reopen (inode));
+    else
+        fd->dir = NULL;
+    
+
     list_push_back(&thread_current()->files, &fd->fd_elem);
     return fd;
 }
@@ -162,8 +171,7 @@ static struct file_descriptor *
 find_fd(int fdn) {
     struct list *files = &thread_current()->files;
     for (struct list_elem *e = list_begin(files); e != list_end(files); e = list_next(e)) {
-        struct file_descriptor *fd = list_entry(e,
-        struct file_descriptor, fd_elem);
+        struct file_descriptor *fd = list_entry(e, struct file_descriptor, fd_elem);
         if (fd->fdn == fdn)
             return fd;
     }
@@ -183,12 +191,16 @@ s_open(const char *file) {
 
     lock_acquire(&filesys_lock);
     struct file *f = filesys_open(file);
-    lock_release(&filesys_lock);
 
-    if (f == NULL)
+    if (f == NULL) {
+        lock_release(&filesys_lock);
         return -1;
-    else
-        return (create_fd(f))->fdn;
+    }
+    
+    struct file_descriptor *fd = create_fd(f);
+
+    lock_release(&filesys_lock);
+    return fd->fdn;
 }
 
 static int
@@ -283,9 +295,81 @@ s_close(int fdn) {
     if (fd == NULL)
         s_exit(-1);
 
-  close_f (fd->file);
-  list_remove (&fd->fd_elem);
-  free (fd);
+    close_f (fd->file);
+    if (fd->dir)
+        dir_close (fd->dir);
+    list_remove (&fd->fd_elem);
+    free (fd);
+}
+
+static bool
+s_chdir (const char *dir)
+{
+    if (dir[0] == '\0')
+        return false;
+
+    bool retval;
+    lock_acquire (&filesys_lock); 
+    retval = filesys_chdir (dir);
+    lock_release (&filesys_lock);
+
+    return retval;
+}
+
+static bool
+s_mkdir (const char *dir)
+{
+    if (dir[0] == '\0')
+        return false;
+
+    bool retval;
+    lock_acquire (&filesys_lock); 
+    retval = filesys_create (dir, 0, true);
+    lock_release (&filesys_lock);
+
+    return retval;
+}
+
+static bool
+s_readdir (int fdn, char name[READDIR_MAX_LEN + 1]) 
+{
+    bool retval = false;
+
+    lock_acquire (&filesys_lock);
+  
+    struct inode *inode;
+    struct file_descriptor *fd = find_fd (fdn);
+
+    if (fd != NULL && fd->dir != NULL) {
+        retval = dir_readdir (fd->dir, name);
+    }
+
+    lock_release (&filesys_lock);
+    return retval;
+}
+
+static bool
+s_isdir (int fdn) 
+{
+  lock_acquire (&filesys_lock);
+
+  struct file_descriptor *fd = find_fd (fdn);
+  bool retval = inode_is_dir (file_get_inode(fd->file));
+
+  lock_release (&filesys_lock);
+  return retval;
+}
+
+static int
+s_inumber (int fdn) 
+{
+  lock_acquire (&filesys_lock);
+
+  struct file_descriptor *fd = find_fd (fdn);
+  int retval = inode_get_sector (file_get_inode(fd->file));
+
+  lock_release (&filesys_lock);
+  return retval;
 }
 
 static void
@@ -300,53 +384,28 @@ syscall_handler(struct intr_frame *f UNUSED) {
 //    printf("system call! %x %d\n", f->esp, type);
 
     switch (type) {
-        case SYS_HALT:
-            s_halt();
-            break;
-        case SYS_EXIT:
-            s_exit(arg(f->esp, 1));
-            break;
-        case SYS_EXEC:
-            f->eax = s_exec(arg(f->esp, 1));
-            break;
-        case SYS_WAIT:
-            f->eax = s_wait(arg(f->esp, 1));
-            break;
-        case SYS_CREATE:
-            f->eax = s_create(arg(f->esp, 1), arg(f->esp, 2));
-            break;
-        case SYS_REMOVE:
-            f->eax = s_remove(arg(f->esp, 1));
-            break;
-        case SYS_OPEN:
-            f->eax = s_open(arg(f->esp, 1));
-            break;
-        case SYS_FILESIZE:
-            f->eax = s_filesize(arg(f->esp, 1));
-            break;
-        case SYS_READ:
-            f->eax = s_read(arg(f->esp, 1), arg(f->esp, 2), arg(f->esp, 3));
-            break;
-        case SYS_WRITE:
-            f->eax = s_write(arg(f->esp, 1), arg(f->esp, 2), arg(f->esp, 3));
-            break;
-        case SYS_SEEK:
-            s_seek(arg(f->esp, 1), arg(f->esp, 2));
-            break;
-        case SYS_TELL:
-            f->eax = s_tell(arg(f->esp, 1));
-            break;
-        case SYS_CLOSE:
-            s_close(arg(f->esp, 1));
-            break;
+        case SYS_HALT:              s_halt    ();                                                   break;
+        case SYS_EXIT:              s_exit    (arg (f->esp, 1));                                    break;
+        case SYS_EXEC:    f->eax =  s_exec    (arg (f->esp, 1));                                    break;
+        case SYS_WAIT:    f->eax =  s_wait    (arg (f->esp, 1));                                    break;
+        case SYS_CREATE:  f->eax =  s_create  (arg (f->esp, 1), arg (f->esp, 2));                   break;
+        case SYS_REMOVE:  f->eax =  s_remove  (arg (f->esp, 1));                                    break;
+        case SYS_OPEN:    f->eax =  s_open    (arg (f->esp, 1));                                    break;
+        case SYS_FILESIZE:f->eax =  s_filesize(arg (f->esp, 1));                                    break;
+        case SYS_READ:    f->eax =  s_read    (arg (f->esp, 1), arg (f->esp, 2), arg (f->esp, 3));  break;
+        case SYS_WRITE:   f->eax =  s_write   (arg (f->esp, 1), arg (f->esp, 2), arg (f->esp, 3));  break;
+        case SYS_SEEK:              s_seek    (arg (f->esp, 1), arg (f->esp, 2));                   break;
+        case SYS_TELL:    f->eax =  s_tell    (arg (f->esp, 1));                                    break;
+        case SYS_CLOSE:             s_close   (arg (f->esp, 1));                                    break;
 #ifdef VM
-        case SYS_MMAP:
-            f->eax = s_mmap(arg(f->esp, 1), arg(f->esp, 2));
-            break;
-        case SYS_MUNMAP:
-            s_munmap(arg(f->esp, 1));
-            break;
+        case SYS_MMAP:    f->eax =  s_mmap(arg(f->esp, 1), arg(f->esp, 2));                         break;
+        case SYS_MUNMAP:            s_munmap(arg(f->esp, 1));                                       break;
 #endif
+        case SYS_CHDIR:   f->eax =  s_chdir   (arg (f->esp, 1));                                    break;
+        case SYS_MKDIR:   f->eax =  s_mkdir   (arg (f->esp, 1));                                    break;
+        case SYS_READDIR: f->eax =  s_readdir (arg (f->esp, 1), arg (f->esp, 2));                   break;                                    break;
+        case SYS_ISDIR:   f->eax =  s_isdir   (arg (f->esp, 1));                                    break;
+        case SYS_INUMBER: f->eax =  s_inumber (arg (f->esp, 1));                                    break;
     }
 }
 

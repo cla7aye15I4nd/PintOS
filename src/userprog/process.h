@@ -4,6 +4,7 @@
 #include "threads/thread.h"
 #include "threads/synch.h"
 #include "filesys/file.h"
+#include "filesys/directory.h"
 #include "../lib/user/syscall.h"
 
 tid_t process_execute(const char *file_name);
@@ -19,6 +20,7 @@ struct process_init_info {
 
 struct file_descriptor {
 	struct file *file;
+	struct dir* dir;
 	int fdn;
 	struct list_elem fd_elem;
 };

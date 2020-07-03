@@ -24,7 +24,7 @@ dir_open (struct inode *inode)
   if (inode != NULL && dir != NULL)
     {
       dir->inode = inode;
-      dir->pos = 0;
+      dir->pos = sizeof (struct dir_entry);
       return dir;
     }
   else
@@ -287,6 +287,7 @@ dir_empty (struct dir* dir)
 {
   struct dir_entry e;
 
+  dir->pos = sizeof e;
   while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) {
     dir->pos += sizeof e;
     if (e.in_use)

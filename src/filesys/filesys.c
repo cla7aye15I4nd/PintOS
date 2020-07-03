@@ -91,8 +91,11 @@ filesys_open (const char *name)
   struct dir *dir = dir_open_path (path);
   struct inode *inode = NULL; 
 
-  if (dir == NULL)
+  if (dir == NULL) {
+    free (path);
+    free (filename);
     return NULL;
+  }
   
   if (filename[0] == '\0') {
     inode = dir->inode;

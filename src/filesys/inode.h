@@ -22,5 +22,4 @@ off_t inode_length (const struct inode *);
 bool inode_is_dir (const struct inode *);
 int inode_get_sector (const struct inode *);
 bool inode_removed (const struct inode *);
-
 #endif /* filesys/inode.h */
