@@ -24,7 +24,7 @@ dir_open (struct inode *inode)
   if (inode != NULL && dir != NULL)
     {
       dir->inode = inode;
-      dir->pos = sizeof (struct dir_entry);
+      dir->pos = 0;
       return dir;
     }
   else
@@ -201,6 +201,7 @@ dir_add (struct dir *dir, const char *name, block_sector_t inode_sector, bool is
     struct dir *new_dir = dir_open(inode_open(inode_sector));
     if (new_dir == NULL) goto done;
     
+    e.in_use = false;
     e.inode_sector = inode_get_sector (dir_get_inode(dir));
     if (inode_write_at(new_dir->inode, &e, sizeof e, 0) != sizeof e) {
       dir_close (new_dir);
@@ -287,9 +288,9 @@ dir_empty (struct dir* dir)
 {
   struct dir_entry e;
 
-  dir->pos = sizeof e;
-  while (inode_read_at (dir->inode, &e, sizeof e, dir->pos) == sizeof e) {
-    dir->pos += sizeof e;
+  off_t ofs = 0;
+  while (inode_read_at (dir->inode, &e, sizeof e, ofs) == sizeof e) {
+    ofs += sizeof e;
     if (e.in_use)
       return false;
   }
