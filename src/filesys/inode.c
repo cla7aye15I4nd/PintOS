@@ -205,7 +205,7 @@ bool inode_trunc (struct inode_disk *idisk, block_sector_t sec, off_t t_sec)
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
 bool
-inode_create (block_sector_t sector, off_t length)
+inode_create (block_sector_t sector, off_t length, bool isdir)
 {
   struct inode_disk *disk_inode = NULL;
   bool success = false;
@@ -220,7 +220,7 @@ inode_create (block_sector_t sector, off_t length)
   if (disk_inode != NULL)
     {
       size_t sectors = bytes_to_sectors (length);
-      disk_inode->length = 0;
+      disk_inode->isdir = isdir;
       disk_inode->magic = INODE_MAGIC;
       
       if (inode_extend (disk_inode, sector, sectors)) 
@@ -279,11 +279,23 @@ inode_reopen (struct inode *inode)
   return inode;
 }
 
+bool 
+inode_is_dir (const struct inode* inode) 
+{
+  return inode->data.isdir;
+}
+
 /* Returns INODE's inode number. */
-block_sector_t
-inode_get_inumber (const struct inode *inode)
+int
+inode_get_sector (const struct inode* inode) 
 {
   return inode->sector;
+}
+
+bool
+inode_removed (const struct inode* inode)
+{
+  return inode->removed;
 }
 
 /* Closes INODE and writes it to disk.

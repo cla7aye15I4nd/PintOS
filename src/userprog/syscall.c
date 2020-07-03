@@ -130,13 +130,14 @@ s_wait(pid_t pid) {
     return process_wait(pid);
 }
 
-static bool
-s_create(const char *file, unsigned initial_size) {
-    check_string(file);
-    lock_acquire(&filesys_lock);
-    bool status = filesys_create(file, initial_size);
-    lock_release(&filesys_lock);
-    return status;
+static bool 
+s_create (const char *file, unsigned initial_size) 
+{
+  check_string (file);
+  lock_acquire (&filesys_lock);
+  bool status = filesys_create (file, initial_size, false);
+  lock_release (&filesys_lock);
+  return status;
 }
 
 static bool

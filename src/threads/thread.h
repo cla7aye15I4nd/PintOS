@@ -135,6 +135,9 @@ struct thread
 
    struct file * exec_file;
 
+#ifdef FILESYS 
+   struct dir* current_dir;
+#endif
   };
 
 /* If false (default), use round-robin scheduler.
